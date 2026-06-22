@@ -12,6 +12,7 @@ import { getAuth, connectAuthEmulator } from "firebase/auth";
 import { getFirestore, connectFirestoreEmulator } from "firebase/firestore";
 import { getFunctions, connectFunctionsEmulator } from "firebase/functions";
 import { getDatabase, connectDatabaseEmulator } from "firebase/database";
+import { getStorage } from "firebase/storage";
 
 const firebaseConfig: FirebaseOptions = {
   // A non-empty placeholder keeps getAuth() from throwing during the server
@@ -44,6 +45,7 @@ export const auth = getAuth(app);
 export const dbClient = getFirestore(app);
 export const functions = getFunctions(app, "europe-west1");
 export const realtimeDb = getDatabase(app);
+export const storage = getStorage(app);
 
 // Wire up emulators in local dev.
 if (typeof window !== "undefined" && process.env.NEXT_PUBLIC_USE_EMULATORS === "1") {
