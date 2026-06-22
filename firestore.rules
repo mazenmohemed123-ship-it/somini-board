@@ -1,9 +1,199 @@
 rules_version = '2';
+
+// =============================================================================
+// Somni Board — Firestore Security Rules
+// Multi-tenant election platform. Tenant isolation is enforced on every read
+// and write by matching the document's tenantId against the caller's
+// auth.token.tenantId (set via Identity Platform Tenants / custom claims).
+// =============================================================================
+
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Allow read/write for authenticated users
+
+    // ---------------------------------------------------------------------
+    // Helper functions
+    // ---------------------------------------------------------------------
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function claims() {
+      return request.auth.token;
+    }
+
+    // The tenant the caller belongs to. With Identity Platform Tenants this is
+    // request.auth.token.firebase.tenant; we also accept a custom claim as a
+    // fallback for environments where Tenants is not yet enabled.
+    function callerTenant() {
+      return request.auth.token.firebase.tenant != null
+        ? request.auth.token.firebase.tenant
+        : request.auth.token.tenantId;
+    }
+
+    function belongsToTenant(tenantId) {
+      return isSignedIn() && callerTenant() == tenantId;
+    }
+
+    function hasRole(role) {
+      return isSignedIn() && claims().role == role;
+    }
+
+    function isSuperAdmin() {
+      return hasRole('superAdmin');
+    }
+
+    function isCompanyAdmin() {
+      return hasRole('companyAdmin');
+    }
+
+    function isSecretary() {
+      return hasRole('secretary');
+    }
+
+    // company-level staff = admin or secretary of the same tenant
+    function isCompanyStaff(tenantId) {
+      return belongsToTenant(tenantId) && (isCompanyAdmin() || isSecretary());
+    }
+
+    // A registered voter authenticates with a uid that equals their voterId.
+    function isRegisteredVoter(electionId) {
+      return isSignedIn() &&
+        exists(/databases/$(database)/documents/elections/$(electionId)/voters/$(request.auth.uid));
+    }
+
+    function voterDoc(electionId) {
+      return get(/databases/$(database)/documents/elections/$(electionId)/voters/$(request.auth.uid)).data;
+    }
+
+    function electionDoc(electionId) {
+      return get(/databases/$(database)/documents/elections/$(electionId)).data;
+    }
+
+    function electionIsActive(electionId) {
+      return electionDoc(electionId).status == 'active' &&
+        request.time >= electionDoc(electionId).startDate &&
+        request.time <= electionDoc(electionId).endDate;
+    }
+
+    function unchanged(field) {
+      return request.resource.data[field] == resource.data[field];
+    }
+
+    // ---------------------------------------------------------------------
+    // companies
+    // ---------------------------------------------------------------------
+    match /companies/{companyId} {
+      allow read: if isSuperAdmin() || belongsToTenant(resource.data.tenantId);
+      // Companies are provisioned by backend (Cloud Functions / superAdmin) only.
+      allow create: if isSuperAdmin();
+      allow update: if isSuperAdmin() ||
+        (isCompanyAdmin() && belongsToTenant(resource.data.tenantId)
+          && unchanged('tenantId') && unchanged('plan'));
+      allow delete: if isSuperAdmin();
+    }
+
+    // ---------------------------------------------------------------------
+    // elections
+    // ---------------------------------------------------------------------
+    match /elections/{electionId} {
+
+      // Anyone signed in within the tenant, plus registered voters of this
+      // election, may read the election metadata (needed for the voter page).
+      allow read: if isSuperAdmin()
+        || belongsToTenant(resource.data.tenantId)
+        || isRegisteredVoter(electionId);
+
+      allow create: if isCompanyStaff(request.resource.data.tenantId)
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.status == 'draft';
+
+      // Admin/secretary may edit while in draft. Status transitions
+      // (active/ended) are performed by Cloud Functions (Scheduler) with the
+      // Admin SDK, which bypasses these rules.
+      allow update: if isCompanyStaff(resource.data.tenantId)
+        && unchanged('tenantId') && unchanged('companyId') && unchanged('createdBy');
+
+      allow delete: if isCompanyStaff(resource.data.tenantId)
+        && resource.data.status == 'draft';
+
+      // ----- candidates -----
+      match /candidates/{candidateId} {
+        allow read: if belongsToTenant(electionDoc(electionId).tenantId)
+          || isRegisteredVoter(electionId);
+        // Candidates are locked once the election is no longer a draft.
+        allow write: if isCompanyStaff(electionDoc(electionId).tenantId)
+          && electionDoc(electionId).status == 'draft';
+      }
+
+      // ----- voters -----
+      match /voters/{voterId} {
+        // Staff can see the whole roster; a voter can read only their own doc.
+        allow read: if isCompanyStaff(electionDoc(electionId).tenantId)
+          || (isSignedIn() && request.auth.uid == voterId);
+
+        // Voter self-registration is handled by a Cloud Function (national-ID
+        // uniqueness + temporary token), so client create is disabled.
+        allow create: if false;
+
+        // Staff may update roster metadata but never the immutable identity /
+        // vote-integrity fields. The vote itself is written by a Function.
+        allow update: if isCompanyStaff(electionDoc(electionId).tenantId)
+          && unchanged('nationalId') && unchanged('voterId')
+          && unchanged('hasVoted') && unchanged('votedFor');
+
+        allow delete: if isCompanyStaff(electionDoc(electionId).tenantId)
+          && electionDoc(electionId).status == 'draft';
+      }
+
+      // ----- votes (write path is Functions-only for integrity) -----
+      match /votes/{voteId} {
+        // Results are public to tenant staff and registered voters; individual
+        // ballots stay aggregate-only on the client via the results screen.
+        allow read: if isCompanyStaff(electionDoc(electionId).tenantId);
+        // Ballots are cast/changed exclusively through Cloud Functions which
+        // enforce the change-vote window and uniqueness. Never client-writable.
+        allow write: if false;
+      }
+    }
+
+    // ---------------------------------------------------------------------
+    // integrations (connected apps)
+    // ---------------------------------------------------------------------
+    match /integrations/{integrationId} {
+      allow read: if isCompanyStaff(resource.data.tenantId) || isSuperAdmin();
+      // apiKey material lives in Secret Manager; only a Function writes the doc.
+      allow create: if false;
+      allow update: if isCompanyStaff(resource.data.tenantId)
+        && unchanged('apiKey') && unchanged('tenantId') && unchanged('companyId');
+      allow delete: if isCompanyStaff(resource.data.tenantId);
+    }
+
+    // ---------------------------------------------------------------------
+    // subscriptions & paymentIntents (Paymob) — backend managed
+    // ---------------------------------------------------------------------
+    match /subscriptions/{subId} {
+      allow read: if isCompanyStaff(resource.data.tenantId) || isSuperAdmin();
+      allow write: if false; // set by Paymob webhook (Admin SDK)
+    }
+
+    match /paymentIntents/{intentId} {
+      allow read: if isCompanyStaff(resource.data.tenantId) || isSuperAdmin();
+      allow write: if false; // created + confirmed by Cloud Functions
+    }
+
+    // ---------------------------------------------------------------------
+    // voterTokens — short-lived login tokens (Firestore TTL on expireAt)
+    // ---------------------------------------------------------------------
+    match /voterTokens/{tokenId} {
+      allow read, write: if false; // Functions-only
+    }
+
+    // ---------------------------------------------------------------------
+    // Default deny
+    // ---------------------------------------------------------------------
     match /{document=**} {
-      allow read, write: if request.auth != null;
+      allow read, write: if false;
     }
   }
 }

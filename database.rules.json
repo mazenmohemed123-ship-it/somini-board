@@ -1,0 +1,26 @@
+{
+  "rules": {
+    "elections": {
+      "$electionId": {
+        "chat": {
+          "$messageId": {
+            ".read": "auth != null",
+            ".write": "auth != null && !data.exists() && newData.child('uid').val() === auth.uid",
+            ".validate": "newData.hasChildren(['uid', 'text', 'createdAt'])",
+            "text": { ".validate": "newData.isString() && newData.val().length <= 2000" },
+            "uid": { ".validate": "newData.val() === auth.uid" },
+            "createdAt": { ".validate": "newData.isNumber()" }
+          }
+        },
+        "liveResults": {
+          ".read": "auth != null",
+          ".write": false
+        },
+        "voterCount": {
+          ".read": "auth != null",
+          ".write": false
+        }
+      }
+    }
+  }
+}

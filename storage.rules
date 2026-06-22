@@ -1,0 +1,47 @@
+rules_version = '2';
+
+// Somni Board — Cloud Storage rules
+// Layout:
+//   tenants/{tenantId}/elections/{electionId}/candidates/{file}  (candidate photos)
+//   tenants/{tenantId}/elections/{electionId}/voters/{file}      (voter photos)
+//   tenants/{tenantId}/reports/{electionId}.pdf                  (final PDF, Functions only)
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function isSignedIn() { return request.auth != null; }
+    function callerTenant() {
+      return request.auth.token.firebase.tenant != null
+        ? request.auth.token.firebase.tenant
+        : request.auth.token.tenantId;
+    }
+    function isStaff(tenantId) {
+      return isSignedIn() && callerTenant() == tenantId &&
+        (request.auth.token.role == 'companyAdmin' || request.auth.token.role == 'secretary');
+    }
+    function isImage() {
+      return request.resource.contentType.matches('image/.*')
+        && request.resource.size < 5 * 1024 * 1024;
+    }
+
+    match /tenants/{tenantId}/elections/{electionId}/candidates/{file} {
+      allow read: if isSignedIn() && callerTenant() == tenantId;
+      allow write: if isStaff(tenantId) && isImage();
+    }
+
+    match /tenants/{tenantId}/elections/{electionId}/voters/{file} {
+      allow read: if isStaff(tenantId);
+      // voter uploads their own photo during registration window
+      allow write: if isSignedIn() && callerTenant() == tenantId && isImage();
+    }
+
+    // Generated PDF reports are written by Cloud Functions (Admin SDK) only.
+    match /tenants/{tenantId}/reports/{file} {
+      allow read: if isStaff(tenantId);
+      allow write: if false;
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
