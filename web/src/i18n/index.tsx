@@ -44,7 +44,9 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
   const value = useMemo<I18nContextValue>(() => {
     const dir = RTL_LOCALES.includes(locale) ? "rtl" : "ltr";
     const dict = DICTS[locale] ?? DICTS.ar;
-    return { locale, dir, setLocale, t: (key) => dict[key] ?? key };
+    // Fall back to English for any key a locale hasn't translated yet, then the
+    // key itself as a last resort — never show a raw key when EN has it.
+    return { locale, dir, setLocale, t: (key) => dict[key] ?? DICTS.en[key] ?? key };
   }, [locale]);
 
   // Keep <html dir/lang> in sync.
