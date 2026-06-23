@@ -21,6 +21,14 @@
           ".write": false
         }
       }
+    },
+    "motions": {
+      "$motionId": {
+        "liveResults": {
+          ".read": "auth != null",
+          ".write": false
+        }
+      }
     }
   }
 }

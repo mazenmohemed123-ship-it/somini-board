@@ -7,26 +7,51 @@ import { setGlobalOptions } from "firebase-functions/v2";
 // Sensible defaults for every function; individual functions can override.
 setGlobalOptions({ region: "europe-west1", maxInstances: 20 });
 
-// Elections
+// --- HR (employees) ---
+export {
+  createEmployee,
+  updateEmployee,
+  deleteEmployee,
+  bulkImportEmployees,
+  importEmployeesTask,
+} from "./hr/employees";
+
+// --- Org structure (branches, departments, committees) ---
+export {
+  createBranch,
+  assignBranchManager,
+  createDepartment,
+  createCommittee,
+  setCommitteeMembers,
+} from "./org/structure";
+
+// --- Elections ---
 export { createElection } from "./elections/create";
 export { openCloseElections } from "./elections/schedule";
-
-// Voters
+export { pullVotersFromEmployees } from "./elections/pullVoters";
 export { registerVoter } from "./voters/register";
-
-// Voting
 export { castVote } from "./voting/cast";
 export { changeVote } from "./voting/change";
-
-// Results / PDF
 export { generateReport, regenerateReport } from "./results/pdf";
 
-// Payments (Paymob)
+// --- Motions (decision voting) ---
+export { createMotion, publishMotion, castMotionVote } from "./motions/motions";
+export { closeExpiredMotions } from "./motions/schedule";
+
+// --- Meetings & minutes ---
+export {
+  createMeeting,
+  sendMeetingReminder,
+  recordMinutes,
+  signMinutes,
+} from "./meetings/meetings";
+
+// --- Payments (Paymob) ---
 export { createPaymentIntent, paymobWebhook } from "./payments/paymob";
 
-// Integrations (connected apps)
+// --- Integrations (connected apps) ---
 export { api } from "./integrations/api";
 export { deliverWebhook } from "./integrations/webhooks";
 
-// Admin / provisioning
+// --- Admin / provisioning ---
 export { provisionCompany, setUserRole, createIntegration } from "./admin/provisioning";

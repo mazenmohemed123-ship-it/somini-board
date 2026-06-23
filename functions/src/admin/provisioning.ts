@@ -33,14 +33,14 @@ export const provisionCompany = onCall(
     const tenant = await auth.tenantManager().createTenant({
       displayName: String(name).slice(0, 36),
       emailSignInConfig: { enabled: true, passwordRequired: true },
+      multiFactorConfig: { state: "ENABLED", factorIds: ["phone"] },
     });
     const tenantId = tenant.tenantId;
 
-    const companyRef = db.collection("companies").doc();
-    await companyRef.set({
-      companyId: companyRef.id,
+    // The tenant root record (companyName lives here per the data model).
+    await db.collection("tenants").doc(tenantId).set({
       tenantId,
-      name,
+      companyName: name,
       plan: plan ?? "free",
       createdAt: FieldValue.serverTimestamp(),
     });
@@ -51,10 +51,10 @@ export const provisionCompany = onCall(
     await tenantAuth.setCustomUserClaims(user.uid, {
       role: "companyAdmin",
       tenantId,
-      companyId: companyRef.id,
+      companyId: tenantId,
     });
 
-    return { companyId: companyRef.id, tenantId, adminUid: user.uid };
+    return { companyId: tenantId, tenantId, adminUid: user.uid };
   }
 );
 
@@ -63,10 +63,14 @@ export const setUserRole = onCall(
   async (request) => {
     const caller = request.auth?.token;
     if (!caller) throw new HttpsError("unauthenticated", "Sign in required.");
-    const { uid, role } = request.data || {};
-    const allowedRoles = ["companyAdmin", "secretary", "voter"];
+    const { uid, role, branchId, employeeId } = request.data || {};
+    const allowedRoles = ["companyAdmin", "branchManager", "secretary", "employee", "voter"];
     if (!uid || !allowedRoles.includes(role)) {
       throw new HttpsError("invalid-argument", "Valid uid and role required.");
+    }
+    // branchManager must be tied to a branch.
+    if (role === "branchManager" && !branchId) {
+      throw new HttpsError("invalid-argument", "branchManager requires branchId.");
     }
 
     const tenantId = caller.firebase?.tenant ?? (caller as any).tenantId;
@@ -81,8 +85,12 @@ export const setUserRole = onCall(
       throw new HttpsError("permission-denied", "Cannot grant companyAdmin.");
     }
 
+    const newClaims: Record<string, unknown> = { role, tenantId, companyId };
+    if (branchId) newClaims.branchId = branchId;
+    if (employeeId) newClaims.employeeId = employeeId;
+
     const tenantAuth = tenantId ? auth.tenantManager().authForTenant(tenantId) : auth;
-    await tenantAuth.setCustomUserClaims(uid, { role, tenantId, companyId });
+    await tenantAuth.setCustomUserClaims(uid, newClaims);
     return { ok: true };
   }
 );

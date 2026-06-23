@@ -118,6 +118,59 @@ export const api = onRequest(
         return;
       }
 
+      // ---- POST /employees ----
+      if (req.method === "POST" && path === "/employees") {
+        const { fullName, email, phone, branchId, department, position, nationalId } = req.body || {};
+        if (!fullName) {
+          res.status(400).json({ error: "fullName required" });
+          return;
+        }
+        const ref = db.collection("employees").doc();
+        await ref.set({
+          employeeId: ref.id,
+          tenantId: integration.tenantId,
+          branchId: branchId ?? null,
+          fullName,
+          email: email ?? "",
+          phone: phone ?? "",
+          department: department ?? null,
+          position: position ?? "",
+          nationalIdHash: nationalId
+            ? createHash("sha256").update(`${integration.tenantId}:${nationalId}`).digest("hex")
+            : null,
+          managerId: null,
+          createdAt: FieldValue.serverTimestamp(),
+        });
+        res.status(201).json({ employeeId: ref.id });
+        return;
+      }
+
+      // ---- POST /motions ----
+      if (req.method === "POST" && path === "/motions") {
+        const { title, description, options, eligibleScope, startDate, endDate } = req.body || {};
+        if (!title || !Array.isArray(options) || options.length < 2 || !startDate || !endDate) {
+          res.status(400).json({ error: "title, options[>=2], startDate, endDate required" });
+          return;
+        }
+        const ref = db.collection("motions").doc();
+        await ref.set({
+          motionId: ref.id,
+          tenantId: integration.tenantId,
+          title,
+          description: description ?? "",
+          options: options.slice(0, 10),
+          eligibleScope: eligibleScope ?? "all",
+          startDate: new Date(startDate),
+          endDate: new Date(endDate),
+          changeVoteWindow: 0,
+          status: "draft",
+          createdBy: `integration:${integration.integrationId}`,
+          createdAt: FieldValue.serverTimestamp(),
+        });
+        res.status(201).json({ motionId: ref.id });
+        return;
+      }
+
       // ---- GET /results/:electionId ----
       const resultsMatch = path.match(/^\/results\/(.+)$/);
       if (req.method === "GET" && resultsMatch) {
