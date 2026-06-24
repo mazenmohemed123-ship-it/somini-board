@@ -10,6 +10,7 @@ export function DashboardNav() {
   const links: NavLink[] = [
     { href: "/dashboard", label: t("nav.dashboard"), icon: "▣" },
     { href: "/dashboard/employees", label: t("nav.employees"), icon: "👥" },
+    { href: "/dashboard/attendance", label: t("nav.attendance"), icon: "🕐" },
     { href: "/dashboard/branches", label: t("nav.branches"), icon: "🏢" },
     { href: "/dashboard/committees", label: t("nav.committees"), icon: "🤝" },
     { href: "/dashboard/elections", label: t("nav.elections"), icon: "🗳️" },

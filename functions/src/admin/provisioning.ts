@@ -137,7 +137,7 @@ export const setUserRole = onCall(
     const caller = request.auth?.token;
     if (!caller) throw new HttpsError("unauthenticated", "Sign in required.");
     const { uid, role, branchId, employeeId } = request.data || {};
-    const allowedRoles = ["companyAdmin", "branchManager", "secretary", "employee", "voter"];
+    const allowedRoles = ["companyAdmin", "branchManager", "secretary", "hr", "employee", "voter"];
     if (!uid || !allowedRoles.includes(role)) {
       throw new HttpsError("invalid-argument", "Valid uid and role required.");
     }

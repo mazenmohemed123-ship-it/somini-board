@@ -48,6 +48,15 @@ export {
   signMinutes,
 } from "./meetings/meetings";
 
+// --- Attendance & time tracking ---
+export {
+  setAttendanceConfig,
+  setBranchLocation,
+  createEmployeeLogin,
+  checkIn,
+  checkOut,
+} from "./attendance/attendance";
+
 // --- Payments (Paymob) ---
 export { createPaymentIntent, paymobWebhook } from "./payments/paymob";
 
