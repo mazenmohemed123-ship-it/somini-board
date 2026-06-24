@@ -54,7 +54,7 @@ export { api } from "./integrations/api";
 export { deliverWebhook } from "./integrations/webhooks";
 
 // --- Admin / provisioning ---
-export { provisionCompany, setUserRole, createIntegration } from "./admin/provisioning";
+export { registerCompany, provisionCompany, setUserRole, createIntegration } from "./admin/provisioning";
 
 // --- Platform owner (superAdmin) dashboard ---
 export {

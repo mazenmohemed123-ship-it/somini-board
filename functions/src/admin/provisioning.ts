@@ -18,6 +18,79 @@ function newApiKey(): { key: string; hash: string } {
   return { key, hash };
 }
 
+/**
+ * registerCompany — PUBLIC self-service signup.
+ *
+ * Any visitor can register their own company and become its first
+ * companyAdmin. Unlike provisionCompany (superAdmin-only, Identity Platform
+ * tenant), this creates a *project-level* user carrying a `tenantId` custom
+ * claim. Tenant isolation in the rules/functions falls back to that claim
+ * (callerTenant() reads token.firebase.tenant OR token.tenantId), so a
+ * project-level companyAdmin is fully scoped to its own company with no
+ * Identity Platform tenant needed. This keeps sign-in dead simple: the user
+ * just signs in with email/password against the default project auth.
+ *
+ * App Check is NOT enforced here so signup works before a reCAPTCHA key is
+ * wired up; abuse is mitigated by email uniqueness + the trial plan default.
+ */
+export const registerCompany = onCall(
+  { region: REGION, enforceAppCheck: false },
+  async (request) => {
+    const { companyName, adminEmail, adminPassword, contactEmail } = request.data || {};
+    if (!companyName || !adminEmail || !adminPassword) {
+      throw new HttpsError(
+        "invalid-argument",
+        "companyName, adminEmail and adminPassword are required."
+      );
+    }
+    if (String(adminPassword).length < 8) {
+      throw new HttpsError("invalid-argument", "Password must be at least 8 characters.");
+    }
+
+    // Reject if the email is already registered at the project level.
+    try {
+      await auth.getUserByEmail(adminEmail);
+      throw new HttpsError("already-exists", "This email is already registered.");
+    } catch (e: any) {
+      if (e instanceof HttpsError) throw e;
+      // auth/user-not-found is the happy path — continue.
+      if (e?.code && e.code !== "auth/user-not-found") {
+        throw new HttpsError("internal", "Could not verify email availability.");
+      }
+    }
+
+    // Create the project-level admin user.
+    const user = await auth.createUser({
+      email: adminEmail,
+      password: adminPassword,
+      displayName: `${companyName} Admin`,
+    });
+
+    // The tenant/company id is the admin's uid — unique and stable.
+    const tenantId = user.uid;
+
+    // Company root record (status "trial" so it shows up as active).
+    await db.collection("tenants").doc(tenantId).set({
+      tenantId,
+      companyName,
+      plan: "free",
+      status: "trial",
+      contactEmail: contactEmail ?? adminEmail,
+      selfRegistered: true,
+      createdAt: FieldValue.serverTimestamp(),
+    });
+
+    // Scope the user to their own company via custom claims.
+    await auth.setCustomUserClaims(user.uid, {
+      role: "companyAdmin",
+      tenantId,
+      companyId: tenantId,
+    });
+
+    return { ok: true, tenantId, companyId: tenantId, adminUid: user.uid };
+  }
+);
+
 export const provisionCompany = onCall(
   { region: REGION, enforceAppCheck: true },
   async (request) => {

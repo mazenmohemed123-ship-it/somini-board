@@ -53,10 +53,28 @@ export default function AuthPage() {
     setMsg("");
     try {
       const provider = new GoogleAuthProvider();
-      await signInWithPopup(auth, provider);
+      const cred = await signInWithPopup(auth, provider);
+      // A Google user has no company claim yet → send them to register one.
+      const token = await cred.user.getIdTokenResult();
+      if (!token.claims.role) {
+        router.replace("/signup?from=google");
+      }
     } catch (err: any) {
+      // User dismissing the popup is not an error worth shouting about.
+      if (err?.code === "auth/popup-closed-by-user" || err?.code === "auth/cancelled-popup-request") {
+        setGoogleBusy(false);
+        return;
+      }
       setMsgType("error");
-      setMsg(`${t("common.error")}: ${err.message}`);
+      if (err?.code === "auth/operation-not-allowed" || err?.code === "auth/configuration-not-found") {
+        setMsg(
+          locale === "ar"
+            ? "تسجيل الدخول عبر Google غير مُفعّل بعد. فعّله من Firebase Console → Authentication → Sign-in method → Google."
+            : "Google sign-in is not enabled yet. Enable it in Firebase Console → Authentication → Sign-in method → Google."
+        );
+      } else {
+        setMsg(`${t("common.error")}: ${err.message}`);
+      }
     } finally {
       setGoogleBusy(false);
     }
