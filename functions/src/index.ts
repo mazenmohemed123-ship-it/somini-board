@@ -55,3 +55,13 @@ export { deliverWebhook } from "./integrations/webhooks";
 
 // --- Admin / provisioning ---
 export { provisionCompany, setUserRole, createIntegration } from "./admin/provisioning";
+
+// --- Platform owner (superAdmin) dashboard ---
+export {
+  getSuperAdminStats,
+  listAllTenants,
+  getTenantDetails,
+  toggleTenantStatus,
+  updateSubscription,
+  listAllSubscriptions,
+} from "./admin/superadmin";

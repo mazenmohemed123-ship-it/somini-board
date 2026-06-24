@@ -19,8 +19,12 @@ export default function AuthPage() {
   const [msg, setMsg] = useState("");
 
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (u) => {
-      if (u) router.replace("/dashboard");
+    const unsub = onAuthStateChanged(auth, async (u) => {
+      if (!u) return;
+      // Platform owner goes to the admin console; everyone else to their
+      // company dashboard.
+      const token = await u.getIdTokenResult();
+      router.replace(token.claims.role === "superAdmin" ? "/admin" : "/dashboard");
     });
     return unsub;
   }, [router]);
