@@ -9,6 +9,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { useI18n, LOCALES } from "@/i18n";
+import Logo from "@/components/Logo";
 
 export function AdminNav() {
   const { t, locale, setLocale } = useI18n();
@@ -39,8 +40,8 @@ export function AdminNav() {
         className="container"
         style={{ display: "flex", alignItems: "center", gap: 16, paddingTop: 12, paddingBottom: 12, flexWrap: "wrap" }}
       >
-        <Link href="/admin" style={{ color: "#fff", fontWeight: 800, fontSize: "1.1rem" }}>
-          {t("admin.console")}
+        <Link href="/admin" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <Logo size="sm" variant="white" />
         </Link>
         <nav style={{ display: "flex", gap: 4, flexWrap: "wrap", flex: 1 }}>
           {links.map((l) => (

@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { useI18n, LOCALES } from "@/i18n";
+import Logo from "@/components/Logo";
 
 const LINKS = [
   { href: "/dashboard", key: "nav.dashboard" },
@@ -38,8 +39,8 @@ export function DashboardNav() {
         className="container"
         style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap", padding: "0 24px" }}
       >
-        <Link href="/dashboard" style={{ fontWeight: 800, color: "var(--primary)", fontSize: "1.1rem" }}>
-          {t("app.name")}
+        <Link href="/dashboard" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <Logo size="sm" />
         </Link>
         <div style={{ display: "flex", gap: 4, flexWrap: "wrap", flex: 1 }}>
           {LINKS.map((l) => {

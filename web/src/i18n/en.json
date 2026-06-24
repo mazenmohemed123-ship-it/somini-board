@@ -141,5 +141,24 @@
   "admin.status.expired": "Expired",
   "admin.status.none": "None",
   "admin.empty": "No data yet",
-  "admin.accessDenied": "This area is for the platform owner only"
+  "admin.accessDenied": "This area is for the platform owner only",
+
+  "auth.badge": "Corporate Governance Platform",
+  "auth.headline": "Run Your Company with Confidence",
+  "auth.subtext": "Integrated platform for managing employees, elections, meetings, and decisions",
+  "auth.stat.companies": "350+",
+  "auth.stat.companiesLabel": "Companies",
+  "auth.stat.employees": "1.5M+",
+  "auth.stat.employeesLabel": "Employees",
+  "auth.title": "Sign In",
+  "auth.email": "Email",
+  "auth.password": "Password",
+  "auth.rememberMe": "Remember me",
+  "auth.forgotPassword": "Forgot password?",
+  "auth.signin": "Sign in",
+  "auth.signup.text": "Don't have an account?",
+  "auth.signup.link": "Create a new account",
+  "auth.footer.copyright": "Copyright © 2026",
+  "auth.footer.terms": "Terms & Conditions",
+  "auth.footer.privacy": "Privacy Policy"
 }

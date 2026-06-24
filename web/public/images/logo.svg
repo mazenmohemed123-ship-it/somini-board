@@ -1,0 +1,9 @@
+<svg width="200" height="60" viewBox="0 0 200 60" xmlns="http://www.w3.org/2000/svg">
+  <!-- Symbol: Minimalist Board/Chart Icon -->
+  <rect x="10" y="15" width="40" height="30" rx="4" fill="#1E293B" />
+  <rect x="15" y="22" width="10" height="15" rx="1" fill="#10B981" />
+  <rect x="30" y="28" width="10" height="9" rx="1" fill="#FFFFFF" opacity="0.8" />
+  <!-- Wordmark -->
+  <text x="60" y="38" font-family="sans-serif" font-weight="bold" font-size="22" fill="#1E293B">Somini</text>
+  <text x="140" y="38" font-family="sans-serif" font-weight="normal" font-size="20" fill="#64748B">Board</text>
+</svg>

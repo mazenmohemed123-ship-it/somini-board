@@ -141,5 +141,24 @@
   "admin.status.expired": "منتهٍ",
   "admin.status.none": "لا يوجد",
   "admin.empty": "لا توجد بيانات بعد",
-  "admin.accessDenied": "هذه الصفحة مخصّصة لمالك المنصة فقط"
+  "admin.accessDenied": "هذه الصفحة مخصّصة لمالك المنصة فقط",
+
+  "auth.badge": "منصة حوكمة مؤسسية",
+  "auth.headline": "أدر شركتك بثقة",
+  "auth.subtext": "منصة متكاملة لإدارة الموظفين والانتخابات والاجتماعات والقرارات",
+  "auth.stat.companies": "٣٥٠+",
+  "auth.stat.companiesLabel": "شركة",
+  "auth.stat.employees": "١.٥M+",
+  "auth.stat.employeesLabel": "موظف",
+  "auth.title": "تسجيل الدخول",
+  "auth.email": "البريد الإلكتروني",
+  "auth.password": "كلمة المرور",
+  "auth.rememberMe": "تذكرني",
+  "auth.forgotPassword": "هل نسيت كلمة المرور؟",
+  "auth.signin": "دخول",
+  "auth.signup.text": "ليس لديك حساب؟",
+  "auth.signup.link": "أنشئ حساب جديد",
+  "auth.footer.copyright": "حقوق النشر © ٢٠٢٦",
+  "auth.footer.terms": "الشروط والأحكام",
+  "auth.footer.privacy": "سياسة الخصوصية"
 }
