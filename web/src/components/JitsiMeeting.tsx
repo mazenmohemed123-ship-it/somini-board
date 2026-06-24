@@ -2,7 +2,7 @@
 
 /**
  * Jitsi Meet embed using the external_api.js script (no self-hosted server).
- * Room name is derived from the election id so each election has its own room.
+ * Room name is derived from the meeting/event id so each has its own room.
  * Toolbar buttons are trimmed to keep the experience focused.
  */
 import { useEffect, useRef } from "react";
@@ -13,13 +13,14 @@ declare global {
   }
 }
 
-export function JitsiMeeting({ electionId }: { electionId: string }) {
+export function JitsiMeeting({ electionId, roomId }: { electionId?: string; roomId?: string }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const apiRef = useRef<any>(null);
+  const id = roomId || electionId;
 
   useEffect(() => {
     const DOMAIN = "meet.jit.si";
-    const room = `SomniBoard-${electionId}`;
+    const room = `SomniBoard-${id}`;
 
     function start() {
       if (!containerRef.current || !window.JitsiMeetExternalAPI) return;
@@ -51,7 +52,7 @@ export function JitsiMeeting({ electionId }: { electionId: string }) {
     return () => {
       apiRef.current?.dispose?.();
     };
-  }, [electionId]);
+  }, [id]);
 
   return <div ref={containerRef} style={{ marginTop: 16, borderRadius: 12, overflow: "hidden" }} />;
 }
