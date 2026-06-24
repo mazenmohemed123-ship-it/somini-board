@@ -12,6 +12,7 @@ import { dbClient, realtimeDb } from "@/lib/firebase";
 import { useAuth } from "@/lib/auth-context";
 import { call } from "@/lib/api";
 import { useI18n } from "@/i18n";
+import { DateTimePicker } from "@/components/DateTimePicker";
 
 interface Motion {
   id: string;
@@ -54,7 +55,7 @@ export default function MotionsPage() {
   const [motions, setMotions] = useState<Motion[]>([]);
   const [form, setForm] = useState({
     title: "", description: "", options: "موافق, غير موافق, ممتنع",
-    eligibleScope: "all", startDate: "", endDate: "", changeVoteWindow: 0,
+    eligibleScope: "all", startDate: 0, endDate: 0, changeVoteWindow: 0,
   });
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
@@ -80,6 +81,14 @@ export default function MotionsPage() {
 
   async function createMotion(e: React.FormEvent) {
     e.preventDefault();
+    if (!form.startDate || !form.endDate) {
+      setMsg(ar ? "اختر تاريخ البدء والانتهاء" : "Pick start and end dates");
+      return;
+    }
+    if (form.endDate <= form.startDate) {
+      setMsg(ar ? "تاريخ الانتهاء يجب أن يكون بعد البدء" : "End must be after start");
+      return;
+    }
     setBusy(true); setMsg("");
     try {
       await call("createMotion", {
@@ -87,8 +96,8 @@ export default function MotionsPage() {
         description: form.description,
         options: form.options.split(",").map((o) => o.trim()).filter(Boolean),
         eligibleScope: form.eligibleScope,
-        startDate: new Date(form.startDate).getTime(),
-        endDate: new Date(form.endDate).getTime(),
+        startDate: form.startDate,
+        endDate: form.endDate,
         changeVoteWindow: Number(form.changeVoteWindow),
       });
       setMsg("✓");
@@ -117,28 +126,38 @@ export default function MotionsPage() {
 
       <section className="card" style={{ marginTop: 16 }}>
         <h2>{t("motion.create")}</h2>
-        <form onSubmit={createMotion}>
+        <form onSubmit={createMotion} style={{ marginTop: 8 }}>
           <label>{t("motion.title")}
-            <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required /></label>
+            <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })}
+              placeholder={ar ? "مثال: الموافقة على الميزانية" : "e.g., Approve the budget"} required /></label>
           <label>{t("election.description")}
-            <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></label>
-          <label>{t("motion.options")} (مفصولة بفاصلة)
-            <input value={form.options} onChange={(e) => setForm({ ...form, options: e.target.value })} required /></label>
-          <div className="grid" style={{ gridTemplateColumns: "1fr 1fr 1fr" }}>
-            <label>{t("motion.scope")}
-              <select value={form.eligibleScope} onChange={(e) => setForm({ ...form, eligibleScope: e.target.value })}>
-                <option value="all">{t("motion.scope.all")}</option>
-                <option value="branch">{t("motion.scope.branch")}</option>
-                <option value="department">{t("motion.scope.department")}</option>
-                <option value="committee">{t("motion.scope.committee")}</option>
-              </select></label>
-            <label>{t("election.startDate")}
-              <input type="datetime-local" value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} required /></label>
-            <label>{t("election.endDate")}
-              <input type="datetime-local" value={form.endDate} onChange={(e) => setForm({ ...form, endDate: e.target.value })} required /></label>
+            <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })}
+              placeholder={ar ? "وصف القرار (اختياري)" : "Decision details (optional)"} rows={2} /></label>
+          <label>{t("motion.options")} {ar ? "(مفصولة بفاصلة)" : "(comma-separated)"}
+            <input value={form.options} onChange={(e) => setForm({ ...form, options: e.target.value })}
+              placeholder={ar ? "موافق, غير موافق, ممتنع" : "Yes, No, Abstain"} required /></label>
+
+          <label style={{ marginTop: 16 }}>{t("motion.scope")}
+            <select value={form.eligibleScope} onChange={(e) => setForm({ ...form, eligibleScope: e.target.value })}>
+              <option value="all">{t("motion.scope.all")}</option>
+              <option value="branch">{t("motion.scope.branch")}</option>
+              <option value="department">{t("motion.scope.department")}</option>
+              <option value="committee">{t("motion.scope.committee")}</option>
+            </select></label>
+
+          <div style={{ marginTop: 18 }}>
+            <span style={{ fontWeight: 700, display: "block", marginBottom: 8 }}>🟢 {t("election.startDate")}</span>
+            <DateTimePicker value={form.startDate} onChange={(v) => setForm({ ...form, startDate: v })} ar={ar} />
           </div>
-          <button className="btn" disabled={busy} style={{ marginTop: 16 }}>{t("motion.create")}</button>
-          {msg && <p style={{ marginTop: 12 }}>{msg}</p>}
+          <div style={{ marginTop: 18 }}>
+            <span style={{ fontWeight: 700, display: "block", marginBottom: 8 }}>🔴 {t("election.endDate")}</span>
+            <DateTimePicker value={form.endDate} onChange={(v) => setForm({ ...form, endDate: v })} ar={ar} />
+          </div>
+
+          <button className="btn" disabled={busy} style={{ marginTop: 22, width: "100%" }}>
+            {busy ? t("common.loading") : t("motion.create")}
+          </button>
+          {msg && <p style={{ marginTop: 12, textAlign: "center", fontWeight: 600 }}>{msg}</p>}
         </form>
       </section>
 

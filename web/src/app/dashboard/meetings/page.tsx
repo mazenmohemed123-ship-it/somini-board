@@ -12,6 +12,7 @@ import { useAuth } from "@/lib/auth-context";
 import { call } from "@/lib/api";
 import { useI18n } from "@/i18n";
 import { JitsiMeeting } from "@/components/JitsiMeeting";
+import { DateTimePicker } from "@/components/DateTimePicker";
 
 interface Meeting {
   id: string;
@@ -30,7 +31,7 @@ export default function MeetingsPage() {
   const { user, loading, tenantId } = useAuth();
   const ar = locale === "ar";
   const [meetings, setMeetings] = useState<Meeting[]>([]);
-  const [form, setForm] = useState({ title: "", dateTime: "", type: "general" });
+  const [form, setForm] = useState({ title: "", dateTime: 0, type: "general" });
   const [joined, setJoined] = useState<string | null>(null);
   const [minutesFor, setMinutesFor] = useState<string | null>(null);
   const [minutesText, setMinutesText] = useState("");
@@ -58,14 +59,18 @@ export default function MeetingsPage() {
 
   async function createMeeting(e: React.FormEvent) {
     e.preventDefault();
+    if (!form.dateTime) {
+      setMsg(ar ? "اختر موعد الاجتماع" : "Pick a meeting date");
+      return;
+    }
     setBusy(true); setMsg("");
     try {
       await call("createMeeting", {
         title: form.title,
-        dateTime: new Date(form.dateTime).getTime(),
+        dateTime: form.dateTime,
         type: form.type,
       });
-      setForm({ title: "", dateTime: "", type: "general" });
+      setForm({ title: "", dateTime: 0, type: "general" });
       setMsg("✓");
     } catch (err: any) {
       setMsg(`${t("common.error")}: ${err.message}`);
@@ -94,21 +99,28 @@ export default function MeetingsPage() {
 
       <section className="card" style={{ marginTop: 16 }}>
         <h2>{t("meeting.create")}</h2>
-        <form onSubmit={createMeeting}>
-          <div className="grid" style={{ gridTemplateColumns: "1fr 1fr 1fr" }}>
+        <form onSubmit={createMeeting} style={{ marginTop: 8 }}>
+          <div className="grid" style={{ gridTemplateColumns: "1fr 1fr" }}>
             <label>{t("meeting.title")}
-              <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required /></label>
-            <label>{t("meeting.dateTime")}
-              <input type="datetime-local" value={form.dateTime} onChange={(e) => setForm({ ...form, dateTime: e.target.value })} required /></label>
+              <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })}
+                placeholder={ar ? "مثال: اجتماع مجلس الإدارة" : "e.g., Board Meeting"} required /></label>
             <label>{t("meeting.type")}
               <select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}>
-                <option value="general">عام</option>
-                <option value="committee">لجنة</option>
-                <option value="election">انتخاب</option>
+                <option value="general">{ar ? "عام" : "General"}</option>
+                <option value="committee">{ar ? "لجنة" : "Committee"}</option>
+                <option value="election">{ar ? "انتخاب" : "Election"}</option>
               </select></label>
           </div>
-          <button className="btn" disabled={busy} style={{ marginTop: 16 }}>{t("meeting.create")}</button>
-          {msg && <p style={{ marginTop: 12 }}>{msg}</p>}
+
+          <div style={{ marginTop: 18 }}>
+            <span style={{ fontWeight: 700, display: "block", marginBottom: 8 }}>🗓️ {t("meeting.dateTime")}</span>
+            <DateTimePicker value={form.dateTime} onChange={(v) => setForm({ ...form, dateTime: v })} ar={ar} />
+          </div>
+
+          <button className="btn" disabled={busy} style={{ marginTop: 22, width: "100%" }}>
+            {busy ? t("common.loading") : t("meeting.create")}
+          </button>
+          {msg && <p style={{ marginTop: 12, textAlign: "center", fontWeight: 600 }}>{msg}</p>}
         </form>
       </section>
 
