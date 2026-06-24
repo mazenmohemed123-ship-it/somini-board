@@ -5,10 +5,11 @@
  * scope, publish it, and vote inline. Results show live from RTDB.
  */
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { collection, onSnapshot, query, where } from "firebase/firestore";
 import { onValue, ref } from "firebase/database";
-import { onAuthStateChanged } from "firebase/auth";
-import { auth, dbClient, realtimeDb } from "@/lib/firebase";
+import { dbClient, realtimeDb } from "@/lib/firebase";
+import { useAuth } from "@/lib/auth-context";
 import { call } from "@/lib/api";
 import { useI18n } from "@/i18n";
 
@@ -46,8 +47,10 @@ function MotionResults({ motionId, options }: { motionId: string; options: strin
 }
 
 export default function MotionsPage() {
-  const { t } = useI18n();
-  const [tenantId, setTenantId] = useState<string | null>(null);
+  const router = useRouter();
+  const { t, locale } = useI18n();
+  const { user, loading, tenantId } = useAuth();
+  const ar = locale === "ar";
   const [motions, setMotions] = useState<Motion[]>([]);
   const [form, setForm] = useState({
     title: "", description: "", options: "موافق, غير موافق, ممتنع",
@@ -55,22 +58,25 @@ export default function MotionsPage() {
   });
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
+  const [error, setError] = useState("");
 
-  useEffect(
-    () =>
-      onAuthStateChanged(auth, async (u) => {
-        const token = u ? await u.getIdTokenResult() : null;
-        setTenantId((token?.claims as any)?.firebase?.tenant ?? (token?.claims as any)?.tenantId ?? null);
-      }),
-    []
-  );
+  useEffect(() => {
+    if (!loading && !user) {
+      router.replace("/auth");
+    }
+  }, [user, loading, router]);
 
   useEffect(() => {
     if (!tenantId) return;
-    return onSnapshot(query(collection(dbClient, "motions"), where("tenantId", "==", tenantId)), (s) =>
-      setMotions(s.docs.map((d) => ({ id: d.id, ...(d.data() as any) })))
+    return onSnapshot(
+      query(collection(dbClient, "motions"), where("tenantId", "==", tenantId)),
+      (s) => {
+        setMotions(s.docs.map((d) => ({ id: d.id, ...(d.data() as any) })));
+        setError("");
+      },
+      (err) => setError(`${t("common.error")}: ${err.message}`)
     );
-  }, [tenantId]);
+  }, [tenantId, t]);
 
   async function createMotion(e: React.FormEvent) {
     e.preventDefault();
@@ -101,9 +107,13 @@ export default function MotionsPage() {
     }
   }
 
+  if (loading) return null;
+
   return (
     <main className="container">
       <h1>{t("nav.motions")}</h1>
+
+      {error && <div style={{ color: "red", marginBottom: 16, padding: 12, backgroundColor: "#fee2e2", borderRadius: 8 }}>{error}</div>}
 
       <section className="card" style={{ marginTop: 16 }}>
         <h2>{t("motion.create")}</h2>

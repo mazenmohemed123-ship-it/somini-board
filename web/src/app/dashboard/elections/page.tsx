@@ -5,10 +5,11 @@
  * and — the HR link — pull the voter roster directly from employees by scope.
  */
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { collection, onSnapshot, query, where } from "firebase/firestore";
-import { onAuthStateChanged } from "firebase/auth";
-import { auth, dbClient } from "@/lib/firebase";
+import { dbClient } from "@/lib/firebase";
+import { useAuth } from "@/lib/auth-context";
 import { call } from "@/lib/api";
 import { useI18n } from "@/i18n";
 
@@ -21,9 +22,10 @@ interface Election {
 }
 
 export default function ElectionsPage() {
-  const { t } = useI18n();
-  const [uid, setUid] = useState<string | null>(null);
-  const [tenantId, setTenantId] = useState<string | null>(null);
+  const router = useRouter();
+  const { t, locale } = useI18n();
+  const { user, loading, tenantId } = useAuth();
+  const ar = locale === "ar";
   const [elections, setElections] = useState<Election[]>([]);
   const [branches, setBranches] = useState<{ id: string; name: string }[]>([]);
   const [committees, setCommittees] = useState<{ id: string; name: string }[]>([]);
@@ -34,30 +36,36 @@ export default function ElectionsPage() {
   const [pull, setPull] = useState({ electionId: "", scope: "all", branchId: "", department: "", committeeId: "" });
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
+  const [error, setError] = useState("");
 
-  useEffect(
-    () =>
-      onAuthStateChanged(auth, async (u) => {
-        setUid(u?.uid ?? null);
-        const token = u ? await u.getIdTokenResult() : null;
-        setTenantId((token?.claims as any)?.firebase?.tenant ?? (token?.claims as any)?.tenantId ?? null);
-      }),
-    []
-  );
+  useEffect(() => {
+    if (!loading && !user) {
+      router.replace("/auth");
+    }
+  }, [user, loading, router]);
 
   useEffect(() => {
     if (!tenantId) return;
-    const ue = onSnapshot(query(collection(dbClient, "elections"), where("tenantId", "==", tenantId)), (s) =>
-      setElections(s.docs.map((d) => ({ id: d.id, ...(d.data() as any) })))
+    const ue = onSnapshot(
+      query(collection(dbClient, "elections"), where("tenantId", "==", tenantId)),
+      (s) => {
+        setElections(s.docs.map((d) => ({ id: d.id, ...(d.data() as any) })));
+        setError("");
+      },
+      (err) => setError(`${t("common.error")}: ${err.message}`)
     );
-    const ub = onSnapshot(query(collection(dbClient, "branches"), where("tenantId", "==", tenantId)), (s) =>
-      setBranches(s.docs.map((d) => ({ id: d.id, name: d.data().name })))
+    const ub = onSnapshot(
+      query(collection(dbClient, "branches"), where("tenantId", "==", tenantId)),
+      (s) => setBranches(s.docs.map((d) => ({ id: d.id, name: d.data().name }))),
+      (err) => setError(`${t("common.error")}: ${err.message}`)
     );
-    const uc = onSnapshot(query(collection(dbClient, "committees"), where("tenantId", "==", tenantId)), (s) =>
-      setCommittees(s.docs.map((d) => ({ id: d.id, name: d.data().name })))
+    const uc = onSnapshot(
+      query(collection(dbClient, "committees"), where("tenantId", "==", tenantId)),
+      (s) => setCommittees(s.docs.map((d) => ({ id: d.id, name: d.data().name }))),
+      (err) => setError(`${t("common.error")}: ${err.message}`)
     );
     return () => { ue(); ub(); uc(); };
-  }, [tenantId]);
+  }, [tenantId, t]);
 
   async function createElection(e: React.FormEvent) {
     e.preventDefault();
@@ -96,9 +104,13 @@ export default function ElectionsPage() {
     } finally { setBusy(false); }
   }
 
+  if (loading) return null;
+
   return (
     <main className="container">
       <h1>{t("nav.elections")}</h1>
+
+      {error && <div style={{ color: "red", marginBottom: 16, padding: 12, backgroundColor: "#fee2e2", borderRadius: 8 }}>{error}</div>}
 
       <section className="card" style={{ marginTop: 16 }}>
         <h2>{t("election.create")}</h2>

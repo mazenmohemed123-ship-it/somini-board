@@ -2,9 +2,10 @@
 
 /** Committee management: create committees and set their members (employees). */
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { collection, onSnapshot, query, where } from "firebase/firestore";
-import { onAuthStateChanged } from "firebase/auth";
-import { auth, dbClient } from "@/lib/firebase";
+import { dbClient } from "@/lib/firebase";
+import { useAuth } from "@/lib/auth-context";
 import { call } from "@/lib/api";
 import { useI18n } from "@/i18n";
 
@@ -19,8 +20,10 @@ interface Employee {
 }
 
 export default function CommitteesPage() {
-  const { t } = useI18n();
-  const [tenantId, setTenantId] = useState<string | null>(null);
+  const router = useRouter();
+  const { t, locale } = useI18n();
+  const { user, loading, tenantId } = useAuth();
+  const ar = locale === "ar";
   const [committees, setCommittees] = useState<Committee[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [name, setName] = useState("");
@@ -28,23 +31,28 @@ export default function CommitteesPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
+  const [error, setError] = useState("");
 
-  useEffect(
-    () =>
-      onAuthStateChanged(auth, async (u) => {
-        const token = u ? await u.getIdTokenResult() : null;
-        setTenantId((token?.claims as any)?.firebase?.tenant ?? (token?.claims as any)?.tenantId ?? null);
-      }),
-    []
-  );
+  useEffect(() => {
+    if (!loading && !user) {
+      router.replace("/auth");
+    }
+  }, [user, loading, router]);
 
   useEffect(() => {
     if (!tenantId) return;
-    const uc = onSnapshot(query(collection(dbClient, "committees"), where("tenantId", "==", tenantId)), (s) =>
-      setCommittees(s.docs.map((d) => ({ id: d.id, name: d.data().name, members: d.data().members ?? [] })))
+    const uc = onSnapshot(
+      query(collection(dbClient, "committees"), where("tenantId", "==", tenantId)),
+      (s) => {
+        setCommittees(s.docs.map((d) => ({ id: d.id, name: d.data().name, members: d.data().members ?? [] })));
+        setError("");
+      },
+      (err) => setError(`${t("common.error")}: ${err.message}`)
     );
-    const ue = onSnapshot(query(collection(dbClient, "employees"), where("tenantId", "==", tenantId)), (s) =>
-      setEmployees(s.docs.map((d) => ({ id: d.id, fullName: d.data().fullName })))
+    const ue = onSnapshot(
+      query(collection(dbClient, "employees"), where("tenantId", "==", tenantId)),
+      (s) => setEmployees(s.docs.map((d) => ({ id: d.id, fullName: d.data().fullName }))),
+      (err) => setError(`${t("common.error")}: ${err.message}`)
     );
     return () => {
       uc();
@@ -77,9 +85,13 @@ export default function CommitteesPage() {
     }
   }
 
+  if (loading) return null;
+
   return (
     <main className="container">
       <h1>{t("nav.committees")}</h1>
+
+      {error && <div style={{ color: "red", marginBottom: 16, padding: 12, backgroundColor: "#fee2e2", borderRadius: 8 }}>{error}</div>}
 
       <section className="card" style={{ marginTop: 16 }}>
         <h2>{t("committee.add")}</h2>
@@ -90,16 +102,19 @@ export default function CommitteesPage() {
             try {
               await call("createCommittee", { name, members: [] });
               setName("");
+              setMsg("✓");
             } catch (err: any) {
-              setMsg(err.message);
+              setMsg(`${t("common.error")}: ${err.message}`);
             } finally {
               setBusy(false);
             }
           }}
         >
           <label>{t("committee.name")}
-            <input value={name} onChange={(e) => setName(e.target.value)} required /></label>
-          <button className="btn" disabled={busy} style={{ marginTop: 16 }}>{t("committee.add")}</button>
+            <input value={name} onChange={(e) => setName(e.target.value)}
+              placeholder={ar ? "مثال: لجنة التدقيق" : "e.g., Audit Committee"} required /></label>
+          <button className="btn" disabled={busy} style={{ marginTop: 16, width: "100%" }}>{busy ? t("common.loading") : t("committee.add")}</button>
+          {msg && <p style={{ marginTop: 12, textAlign: "center" }}>{msg}</p>}
         </form>
       </section>
 

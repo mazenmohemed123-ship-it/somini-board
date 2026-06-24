@@ -18,8 +18,9 @@ interface Branch {
 
 export default function BranchesPage() {
   const router = useRouter();
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const { user, loading, tenantId } = useAuth();
+  const ar = locale === "ar";
   const [branches, setBranches] = useState<Branch[]>([]);
   const [departments, setDepartments] = useState<{ id: string; name: string }[]>([]);
   const [branchForm, setBranchForm] = useState({ name: "", address: "" });
@@ -77,7 +78,7 @@ export default function BranchesPage() {
 
       {error && <div style={{ color: "red", marginBottom: 16, padding: 12, backgroundColor: "#fee2e2", borderRadius: 8 }}>{error}</div>}
 
-      <div className="grid" style={{ gridTemplateColumns: "1fr 1fr", marginTop: 16 }}>
+      <div className="grid" style={{ gridTemplateColumns: "1fr 1fr", marginTop: 24, gap: 24 }}>
         <section className="card">
           <h2>{t("branch.add")}</h2>
           <form
@@ -90,10 +91,12 @@ export default function BranchesPage() {
             }}
           >
             <label>{t("branch.name")}
-              <input value={branchForm.name} onChange={(e) => setBranchForm({ ...branchForm, name: e.target.value })} required /></label>
+              <input value={branchForm.name} onChange={(e) => setBranchForm({ ...branchForm, name: e.target.value })}
+                placeholder={ar ? "مثال: فرع القاهرة" : "e.g., Cairo Branch"} required /></label>
             <label>{t("branch.address")}
-              <input value={branchForm.address} onChange={(e) => setBranchForm({ ...branchForm, address: e.target.value })} /></label>
-            <button className="btn" disabled={busy} style={{ marginTop: 16 }}>{t("branch.add")}</button>
+              <input value={branchForm.address} onChange={(e) => setBranchForm({ ...branchForm, address: e.target.value })}
+                placeholder={ar ? "العنوان الكامل" : "Full address"} /></label>
+            <button className="btn" disabled={busy} style={{ marginTop: 20, width: "100%" }}>{busy ? t("common.loading") : t("branch.add")}</button>
           </form>
         </section>
 
@@ -109,8 +112,9 @@ export default function BranchesPage() {
             }}
           >
             <label>{t("nav.departments")}
-              <input value={deptName} onChange={(e) => setDeptName(e.target.value)} required /></label>
-            <button className="btn" disabled={busy} style={{ marginTop: 16 }}>{t("department.add")}</button>
+              <input value={deptName} onChange={(e) => setDeptName(e.target.value)}
+                placeholder={ar ? "مثال: قسم التطوير" : "e.g., Development"} required /></label>
+            <button className="btn" disabled={busy} style={{ marginTop: 20, width: "100%" }}>{busy ? t("common.loading") : t("department.add")}</button>
           </form>
           <div style={{ marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap" }}>
             {departments.map((d) => (

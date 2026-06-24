@@ -5,9 +5,10 @@
  * live stream via embedded Jitsi, and record/sign minutes.
  */
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { collection, onSnapshot, query, where } from "firebase/firestore";
-import { onAuthStateChanged } from "firebase/auth";
-import { auth, dbClient } from "@/lib/firebase";
+import { dbClient } from "@/lib/firebase";
+import { useAuth } from "@/lib/auth-context";
 import { call } from "@/lib/api";
 import { useI18n } from "@/i18n";
 import { JitsiMeeting } from "@/components/JitsiMeeting";
@@ -24,8 +25,10 @@ interface Meeting {
 }
 
 export default function MeetingsPage() {
-  const { t } = useI18n();
-  const [tenantId, setTenantId] = useState<string | null>(null);
+  const router = useRouter();
+  const { t, locale } = useI18n();
+  const { user, loading, tenantId } = useAuth();
+  const ar = locale === "ar";
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [form, setForm] = useState({ title: "", dateTime: "", type: "general" });
   const [joined, setJoined] = useState<string | null>(null);
@@ -33,22 +36,25 @@ export default function MeetingsPage() {
   const [minutesText, setMinutesText] = useState("");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
+  const [error, setError] = useState("");
 
-  useEffect(
-    () =>
-      onAuthStateChanged(auth, async (u) => {
-        const token = u ? await u.getIdTokenResult() : null;
-        setTenantId((token?.claims as any)?.firebase?.tenant ?? (token?.claims as any)?.tenantId ?? null);
-      }),
-    []
-  );
+  useEffect(() => {
+    if (!loading && !user) {
+      router.replace("/auth");
+    }
+  }, [user, loading, router]);
 
   useEffect(() => {
     if (!tenantId) return;
-    return onSnapshot(query(collection(dbClient, "meetings"), where("tenantId", "==", tenantId)), (s) =>
-      setMeetings(s.docs.map((d) => ({ id: d.id, ...(d.data() as any) })))
+    return onSnapshot(
+      query(collection(dbClient, "meetings"), where("tenantId", "==", tenantId)),
+      (s) => {
+        setMeetings(s.docs.map((d) => ({ id: d.id, ...(d.data() as any) })));
+        setError("");
+      },
+      (err) => setError(`${t("common.error")}: ${err.message}`)
     );
-  }, [tenantId]);
+  }, [tenantId, t]);
 
   async function createMeeting(e: React.FormEvent) {
     e.preventDefault();
@@ -78,9 +84,13 @@ export default function MeetingsPage() {
     } finally { setBusy(false); }
   }
 
+  if (loading) return null;
+
   return (
     <main className="container">
       <h1>{t("nav.meetings")}</h1>
+
+      {error && <div style={{ color: "red", marginBottom: 16, padding: 12, backgroundColor: "#fee2e2", borderRadius: 8 }}>{error}</div>}
 
       <section className="card" style={{ marginTop: 16 }}>
         <h2>{t("meeting.create")}</h2>

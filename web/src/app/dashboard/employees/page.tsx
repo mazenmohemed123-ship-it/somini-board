@@ -37,8 +37,9 @@ function parseCsv(text: string): Record<string, string>[] {
 
 export default function EmployeesPage() {
   const router = useRouter();
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const { user, loading, tenantId } = useAuth();
+  const ar = locale === "ar";
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [form, setForm] = useState({ fullName: "", email: "", phone: "", nationalId: "", department: "", position: "", branchId: "" });
   const [busy, setBusy] = useState(false);
@@ -127,24 +128,31 @@ export default function EmployeesPage() {
         <form onSubmit={addEmployee}>
           <div className="grid" style={{ gridTemplateColumns: "1fr 1fr" }}>
             <label>{t("voter.fullName")}
-              <input value={form.fullName} onChange={(e) => setForm({ ...form, fullName: e.target.value })} required /></label>
+              <input value={form.fullName} onChange={(e) => setForm({ ...form, fullName: e.target.value })}
+                placeholder={ar ? "أحمد محمد علي" : "John Doe"} required /></label>
             <label>{t("voter.email")}
-              <input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></label>
+              <input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })}
+                placeholder="john@company.com" /></label>
             <label>{t("employee.phone")}
-              <input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></label>
+              <input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                placeholder="+201234567890" /></label>
             <label>{t("voter.nationalId")}
-              <input value={form.nationalId} onChange={(e) => setForm({ ...form, nationalId: e.target.value })} /></label>
+              <input value={form.nationalId} onChange={(e) => setForm({ ...form, nationalId: e.target.value })}
+                placeholder={ar ? "رقم البطاقة" : "National ID"} /></label>
             <label>{t("employee.department")}
-              <input value={form.department} onChange={(e) => setForm({ ...form, department: e.target.value })} /></label>
+              <input value={form.department} onChange={(e) => setForm({ ...form, department: e.target.value })}
+                placeholder={ar ? "مثال: التطوير" : "e.g., Development"} /></label>
             <label>{t("employee.position")}
-              <input value={form.position} onChange={(e) => setForm({ ...form, position: e.target.value })} /></label>
+              <input value={form.position} onChange={(e) => setForm({ ...form, position: e.target.value })}
+                placeholder={ar ? "مثال: مهندس برمجيات" : "e.g., Software Engineer"} /></label>
             <label>{t("employee.branch")} (ID)
-              <input value={form.branchId} onChange={(e) => setForm({ ...form, branchId: e.target.value })} /></label>
+              <input value={form.branchId} onChange={(e) => setForm({ ...form, branchId: e.target.value })}
+                placeholder={ar ? "معرّف الفرع" : "Branch ID"} /></label>
           </div>
-          <button className="btn" type="submit" disabled={busy} style={{ marginTop: 16 }}>
+          <button className="btn" type="submit" disabled={busy} style={{ marginTop: 20, width: "100%" }}>
             {busy ? t("common.loading") : t("employee.add")}
           </button>
-          {msg && <p style={{ marginTop: 12 }}>{msg}</p>}
+          {msg && <p style={{ marginTop: 12, textAlign: "center" }}>{msg}</p>}
         </form>
         <p style={{ marginTop: 12, color: "var(--muted)", fontSize: "0.8rem" }}>
           CSV: fullName,email,phone,nationalId,department,position,branchId
