@@ -21,16 +21,29 @@
   background: var(--auth-gradient);
 }
 
-/* Corporate: boardroom photo behind the overlay. */
+/* Corporate: rich layered gradient (no embedded image, no stray white box). */
 :global([data-theme="corporate"]) .heroPhoto {
   position: absolute;
   inset: 0;
-  background-image: var(--auth-hero-overlay), url("/images/auth-hero.png");
-  background-size: cover;
-  background-position: center;
+  background:
+    radial-gradient(circle at 78% 18%, rgba(167, 139, 250, 0.45) 0%, transparent 42%),
+    radial-gradient(circle at 18% 82%, rgba(99, 102, 241, 0.5) 0%, transparent 45%),
+    var(--auth-gradient);
 }
 
-/* Tech: hide the photo, the SVG geometry shows instead. */
+/* Soft diagonal grid lines for the corporate hero. */
+:global([data-theme="corporate"]) .heroPhoto::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: radial-gradient(circle at 50% 50%, black, transparent 75%);
+}
+
+/* Tech: the SVG geometry shows over this gradient. */
 :global([data-theme="tech"]) .heroPhoto {
   position: absolute;
   inset: 0;

@@ -34,7 +34,7 @@ function newApiKey(): { key: string; hash: string } {
  * wired up; abuse is mitigated by email uniqueness + the trial plan default.
  */
 export const registerCompany = onCall(
-  { region: REGION, enforceAppCheck: false },
+  { region: REGION, enforceAppCheck: false, memory: "512MiB", invoker: "public" },
   async (request) => {
     const { companyName, adminEmail, adminPassword, contactEmail } = request.data || {};
     if (!companyName || !adminEmail || !adminPassword) {

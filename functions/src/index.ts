@@ -5,7 +5,9 @@
 import { setGlobalOptions } from "firebase-functions/v2";
 
 // Sensible defaults for every function; individual functions can override.
-setGlobalOptions({ region: "europe-west1", maxInstances: 20 });
+// 512 MiB: the Admin SDK + Firestore client comfortably exceed the 256 MiB
+// default at cold start (was causing OOM → "internal" errors on signup).
+setGlobalOptions({ region: "europe-west1", maxInstances: 20, memory: "512MiB" });
 
 // --- HR (employees) ---
 export {
