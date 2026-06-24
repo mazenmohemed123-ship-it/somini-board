@@ -1,11 +1,40 @@
-:root {
-  --primary: #4f46e5;
+/* ===========================================================================
+   THEME SYSTEM
+   Two complete themes selected via <html data-theme="...">. Every component
+   reads these variables, so switching the attribute re-skins the whole site.
+   =========================================================================== */
+
+/* Default (corporate) — also applied when no data-theme is set yet. */
+:root,
+[data-theme="corporate"] {
+  --primary: #4f46e5;        /* indigo  */
   --primary-dark: #4338ca;
+  --accent: #7c3aed;         /* purple  */
+  --accent-soft: #eef2ff;
   --bg: #f8fafc;
   --card: #ffffff;
   --text: #1f2937;
   --muted: #6b7280;
   --border: #e5e7eb;
+  --auth-gradient: linear-gradient(135deg, #1e1b4b 0%, #4338ca 45%, #6d28d9 100%);
+  --auth-hero-overlay: linear-gradient(135deg, rgba(30,27,75,0.92) 0%, rgba(79,70,229,0.78) 100%);
+  --ring: rgba(79, 70, 229, 0.12);
+}
+
+/* Tech — emerald / teal, geometric. */
+[data-theme="tech"] {
+  --primary: #10b981;        /* emerald */
+  --primary-dark: #059669;
+  --accent: #0ea5e9;         /* sky     */
+  --accent-soft: #ecfdf5;
+  --bg: #f0fdfa;
+  --card: #ffffff;
+  --text: #0f172a;
+  --muted: #64748b;
+  --border: #d1fae5;
+  --auth-gradient: linear-gradient(135deg, #0f172a 0%, #0e7490 40%, #10b981 75%, #34d399 100%);
+  --auth-hero-overlay: linear-gradient(135deg, rgba(15,23,42,0.85) 0%, rgba(13,148,136,0.55) 60%, rgba(16,185,129,0.45) 100%);
+  --ring: rgba(16, 185, 129, 0.14);
 }
 
 * {
@@ -95,7 +124,17 @@ label {
 
 .candidate.selected {
   border-color: var(--primary);
-  background: #eef2ff;
+  background: var(--accent-soft);
+}
+
+/* Smooth the re-skin when the theme toggles. */
+body,
+.card,
+.btn,
+input,
+select,
+textarea {
+  transition: background-color 0.25s ease, border-color 0.25s ease, color 0.25s ease;
 }
 
 .candidate img {

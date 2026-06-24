@@ -7,6 +7,7 @@ import { signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { useI18n, LOCALES } from "@/i18n";
 import Logo from "@/components/Logo";
+import { ThemeSwitcher } from "@/components/ThemeSwitcher";
 
 const LINKS = [
   { href: "/dashboard", key: "nav.dashboard" },
@@ -63,6 +64,7 @@ export function DashboardNav() {
             );
           })}
         </div>
+        <ThemeSwitcher compact />
         <select
           value={locale}
           onChange={(e) => setLocale(e.target.value as any)}

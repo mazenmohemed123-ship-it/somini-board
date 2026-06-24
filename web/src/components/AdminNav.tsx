@@ -10,6 +10,7 @@ import { signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { useI18n, LOCALES } from "@/i18n";
 import Logo from "@/components/Logo";
+import { ThemeSwitcher } from "@/components/ThemeSwitcher";
 
 export function AdminNav() {
   const { t, locale, setLocale } = useI18n();
@@ -61,6 +62,7 @@ export function AdminNav() {
             </Link>
           ))}
         </nav>
+        <ThemeSwitcher compact />
         <select
           value={locale}
           onChange={(e) => setLocale(e.target.value as any)}

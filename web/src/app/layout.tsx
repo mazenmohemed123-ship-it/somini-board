@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { I18nProvider } from "@/i18n";
+import { ThemeProvider } from "@/lib/theme-context";
 import { RegisterSW } from "@/components/RegisterSW";
 import "./globals.css";
 
@@ -18,9 +19,11 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="ar" dir="rtl">
+    <html lang="ar" dir="rtl" data-theme="corporate">
       <body>
-        <I18nProvider>{children}</I18nProvider>
+        <ThemeProvider>
+          <I18nProvider>{children}</I18nProvider>
+        </ThemeProvider>
         <RegisterSW />
       </body>
     </html>
