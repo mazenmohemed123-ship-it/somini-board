@@ -41,7 +41,8 @@ export default function SignupPage() {
       await call("registerCompany", { companyName, adminEmail: email, adminPassword: password, contactEmail: email });
       setMsgType("success");
       setMsg(ar ? "تم إنشاء الشركة! جارٍ تسجيل الدخول..." : "Company created! Signing in...");
-      await signInWithEmailAndPassword(auth, email, password);
+      const cred = await signInWithEmailAndPassword(auth, email, password);
+      await cred.user.getIdTokenResult(true);
       router.replace("/dashboard");
     } catch (err: any) {
       setMsgType("error");

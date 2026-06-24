@@ -2,9 +2,10 @@
 
 /** Branch management: create branches, assign managers, add departments. */
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { collection, onSnapshot, query, where } from "firebase/firestore";
-import { onAuthStateChanged } from "firebase/auth";
-import { auth, dbClient } from "@/lib/firebase";
+import { dbClient } from "@/lib/firebase";
+import { useAuth } from "@/lib/auth-context";
 import { call } from "@/lib/api";
 import { useI18n } from "@/i18n";
 
@@ -16,8 +17,9 @@ interface Branch {
 }
 
 export default function BranchesPage() {
+  const router = useRouter();
   const { t } = useI18n();
-  const [tenantId, setTenantId] = useState<string | null>(null);
+  const { user, loading, tenantId } = useAuth();
   const [branches, setBranches] = useState<Branch[]>([]);
   const [departments, setDepartments] = useState<{ id: string; name: string }[]>([]);
   const [branchForm, setBranchForm] = useState({ name: "", address: "" });
@@ -25,29 +27,34 @@ export default function BranchesPage() {
   const [assign, setAssign] = useState({ branchId: "", managerUid: "" });
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
+  const [error, setError] = useState("");
 
-  useEffect(
-    () =>
-      onAuthStateChanged(auth, async (u) => {
-        const token = u ? await u.getIdTokenResult() : null;
-        setTenantId((token?.claims as any)?.firebase?.tenant ?? (token?.claims as any)?.tenantId ?? null);
-      }),
-    []
-  );
+  useEffect(() => {
+    if (!loading && !user) {
+      router.replace("/auth");
+    }
+  }, [user, loading, router]);
 
   useEffect(() => {
     if (!tenantId) return;
-    const ub = onSnapshot(query(collection(dbClient, "branches"), where("tenantId", "==", tenantId)), (s) =>
-      setBranches(s.docs.map((d) => ({ id: d.id, ...(d.data() as any) })))
+    const ub = onSnapshot(
+      query(collection(dbClient, "branches"), where("tenantId", "==", tenantId)),
+      (s) => {
+        setBranches(s.docs.map((d) => ({ id: d.id, ...(d.data() as any) })));
+        setError("");
+      },
+      (err) => setError(`${t("common.error")}: ${err.message}`)
     );
-    const ud = onSnapshot(query(collection(dbClient, "departments"), where("tenantId", "==", tenantId)), (s) =>
-      setDepartments(s.docs.map((d) => ({ id: d.id, name: d.data().name })))
+    const ud = onSnapshot(
+      query(collection(dbClient, "departments"), where("tenantId", "==", tenantId)),
+      (s) => setDepartments(s.docs.map((d) => ({ id: d.id, name: d.data().name }))),
+      (err) => setError(`${t("common.error")}: ${err.message}`)
     );
     return () => {
       ub();
       ud();
     };
-  }, [tenantId]);
+  }, [tenantId, t]);
 
   async function run(fn: () => Promise<any>, success = "✓") {
     setBusy(true);
@@ -62,9 +69,13 @@ export default function BranchesPage() {
     }
   }
 
+  if (loading) return null;
+
   return (
     <main className="container">
       <h1>{t("nav.branches")}</h1>
+
+      {error && <div style={{ color: "red", marginBottom: 16, padding: 12, backgroundColor: "#fee2e2", borderRadius: 8 }}>{error}</div>}
 
       <div className="grid" style={{ gridTemplateColumns: "1fr 1fr", marginTop: 16 }}>
         <section className="card">

@@ -6,9 +6,10 @@
  * Add/import go through Cloud Functions which enforce national-ID uniqueness.
  */
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { collection, onSnapshot, query, where } from "firebase/firestore";
-import { onAuthStateChanged } from "firebase/auth";
-import { auth, dbClient } from "@/lib/firebase";
+import { dbClient } from "@/lib/firebase";
+import { useAuth } from "@/lib/auth-context";
 import { call } from "@/lib/api";
 import { useI18n } from "@/i18n";
 
@@ -35,28 +36,33 @@ function parseCsv(text: string): Record<string, string>[] {
 }
 
 export default function EmployeesPage() {
+  const router = useRouter();
   const { t } = useI18n();
-  const [tenantId, setTenantId] = useState<string | null>(null);
+  const { user, loading, tenantId } = useAuth();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [form, setForm] = useState({ fullName: "", email: "", phone: "", nationalId: "", department: "", position: "", branchId: "" });
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
+  const [error, setError] = useState("");
 
-  useEffect(
-    () =>
-      onAuthStateChanged(auth, async (u) => {
-        const token = u ? await u.getIdTokenResult() : null;
-        const tid = (token?.claims as any)?.firebase?.tenant ?? (token?.claims as any)?.tenantId ?? null;
-        setTenantId(tid);
-      }),
-    []
-  );
+  useEffect(() => {
+    if (!loading && !user) {
+      router.replace("/auth");
+    }
+  }, [user, loading, router]);
 
   useEffect(() => {
     if (!tenantId) return;
     const q = query(collection(dbClient, "employees"), where("tenantId", "==", tenantId));
-    return onSnapshot(q, (snap) => setEmployees(snap.docs.map((d) => ({ id: d.id, ...(d.data() as any) }))));
-  }, [tenantId]);
+    return onSnapshot(
+      q,
+      (snap) => {
+        setEmployees(snap.docs.map((d) => ({ id: d.id, ...(d.data() as any) })));
+        setError("");
+      },
+      (err) => setError(`${t("common.error")}: ${err.message}`)
+    );
+  }, [tenantId, t]);
 
   async function addEmployee(e: React.FormEvent) {
     e.preventDefault();
@@ -97,9 +103,13 @@ export default function EmployeesPage() {
     }
   }
 
+  if (loading) return null;
+
   return (
     <main className="container">
       <h1>{t("nav.employees")}</h1>
+
+      {error && <div style={{ color: "red", marginBottom: 16, padding: 12, backgroundColor: "#fee2e2", borderRadius: 8 }}>{error}</div>}
 
       <section className="card" style={{ marginTop: 16 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>

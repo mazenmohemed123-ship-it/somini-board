@@ -5,10 +5,11 @@
  * (employees, branches, elections, motions, meetings) plus quick links.
  */
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { collection, onSnapshot, query, where } from "firebase/firestore";
-import { onAuthStateChanged } from "firebase/auth";
-import { auth, dbClient } from "@/lib/firebase";
+import { dbClient } from "@/lib/firebase";
+import { useAuth } from "@/lib/auth-context";
 import { useI18n } from "@/i18n";
 
 function useCount(coll: string, tenantId: string | null) {
@@ -21,17 +22,15 @@ function useCount(coll: string, tenantId: string | null) {
 }
 
 export default function Dashboard() {
+  const router = useRouter();
   const { t } = useI18n();
-  const [tenantId, setTenantId] = useState<string | null>(null);
+  const { user, loading, tenantId } = useAuth();
 
-  useEffect(
-    () =>
-      onAuthStateChanged(auth, async (u) => {
-        const token = u ? await u.getIdTokenResult() : null;
-        setTenantId((token?.claims as any)?.firebase?.tenant ?? (token?.claims as any)?.tenantId ?? null);
-      }),
-    []
-  );
+  useEffect(() => {
+    if (!loading && !user) {
+      router.replace("/auth");
+    }
+  }, [user, loading, router]);
 
   const employees = useCount("employees", tenantId);
   const branches = useCount("branches", tenantId);
@@ -39,6 +38,8 @@ export default function Dashboard() {
   const motions = useCount("motions", tenantId);
   const meetings = useCount("meetings", tenantId);
   const committees = useCount("committees", tenantId);
+
+  if (loading) return null;
 
   const cards = [
     { label: t("nav.employees"), value: employees, href: "/dashboard/employees" },

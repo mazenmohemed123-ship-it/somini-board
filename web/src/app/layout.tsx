@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { I18nProvider } from "@/i18n";
 import { ThemeProvider } from "@/lib/theme-context";
+import { AuthProvider } from "@/lib/auth-context";
 import { RegisterSW } from "@/components/RegisterSW";
 import "./globals.css";
 
@@ -22,7 +23,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="ar" dir="rtl" data-theme="corporate">
       <body>
         <ThemeProvider>
-          <I18nProvider>{children}</I18nProvider>
+          <AuthProvider>
+            <I18nProvider>{children}</I18nProvider>
+          </AuthProvider>
         </ThemeProvider>
         <RegisterSW />
       </body>
