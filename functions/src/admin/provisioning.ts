@@ -10,7 +10,7 @@
  */
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { randomBytes, createHash } from "crypto";
-import { db, auth, FieldValue, REGION } from "../lib/admin";
+import { db, auth, FieldValue, REGION, ENFORCE_APP_CHECK } from "../lib/admin";
 
 function newApiKey(): { key: string; hash: string } {
   const key = `sk_live_${randomBytes(24).toString("hex")}`;
@@ -92,7 +92,7 @@ export const registerCompany = onCall(
 );
 
 export const provisionCompany = onCall(
-  { region: REGION, enforceAppCheck: true },
+  { region: REGION, enforceAppCheck: ENFORCE_APP_CHECK },
   async (request) => {
     if (request.auth?.token.role !== "superAdmin") {
       throw new HttpsError("permission-denied", "superAdmin only.");
@@ -132,7 +132,7 @@ export const provisionCompany = onCall(
 );
 
 export const setUserRole = onCall(
-  { region: REGION, enforceAppCheck: true },
+  { region: REGION, enforceAppCheck: ENFORCE_APP_CHECK },
   async (request) => {
     const caller = request.auth?.token;
     if (!caller) throw new HttpsError("unauthenticated", "Sign in required.");
@@ -169,7 +169,7 @@ export const setUserRole = onCall(
 );
 
 export const createIntegration = onCall(
-  { region: REGION, enforceAppCheck: true },
+  { region: REGION, enforceAppCheck: ENFORCE_APP_CHECK },
   async (request) => {
     const caller = request.auth?.token;
     if (caller?.role !== "companyAdmin") {

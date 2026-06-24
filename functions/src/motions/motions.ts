@@ -13,7 +13,7 @@
  * live display, and the canonical ballots live in motions/{id}/votes.
  */
 import { onCall, HttpsError } from "firebase-functions/v2/https";
-import { db, rtdb, FieldValue, ServerValue, REGION } from "../lib/admin";
+import { db, rtdb, FieldValue, ServerValue, REGION, ENFORCE_APP_CHECK } from "../lib/admin";
 import { getCaller, isStaff, canManageBranch } from "../lib/context";
 
 interface CreateMotionInput {
@@ -29,7 +29,7 @@ interface CreateMotionInput {
   changeVoteWindow?: number; // minutes
 }
 
-export const createMotion = onCall({ region: REGION, enforceAppCheck: true }, async (request) => {
+export const createMotion = onCall({ region: REGION, enforceAppCheck: ENFORCE_APP_CHECK }, async (request) => {
   const caller = getCaller(request);
   const d = request.data as CreateMotionInput;
   if (!d.title || !Array.isArray(d.options) || d.options.length < 2) {
@@ -63,7 +63,7 @@ export const createMotion = onCall({ region: REGION, enforceAppCheck: true }, as
   return { motionId: ref.id };
 });
 
-export const publishMotion = onCall({ region: REGION, enforceAppCheck: true }, async (request) => {
+export const publishMotion = onCall({ region: REGION, enforceAppCheck: ENFORCE_APP_CHECK }, async (request) => {
   const caller = getCaller(request);
   const { motionId } = request.data || {};
   const ref = db.collection("motions").doc(motionId);
@@ -108,7 +108,7 @@ async function assertEligible(
 }
 
 export const castMotionVote = onCall(
-  { region: REGION, enforceAppCheck: true },
+  { region: REGION, enforceAppCheck: ENFORCE_APP_CHECK },
   async (request) => {
     const caller = getCaller(request);
     const { motionId, optionChosen } = request.data || {};

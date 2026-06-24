@@ -4,7 +4,7 @@
  * Once that timestamp passes the ballot is final and this rejects.
  */
 import { onCall, HttpsError } from "firebase-functions/v2/https";
-import { db, rtdb, FieldValue, ServerValue, REGION } from "../lib/admin";
+import { db, rtdb, FieldValue, ServerValue, REGION, ENFORCE_APP_CHECK } from "../lib/admin";
 
 interface ChangeVoteData {
   electionId: string;
@@ -12,7 +12,7 @@ interface ChangeVoteData {
 }
 
 export const changeVote = onCall(
-  { region: REGION, enforceAppCheck: true },
+  { region: REGION, enforceAppCheck: ENFORCE_APP_CHECK },
   async (request) => {
     const { auth } = request;
     if (!auth) throw new HttpsError("unauthenticated", "Sign in required.");

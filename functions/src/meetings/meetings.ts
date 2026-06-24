@@ -12,7 +12,7 @@
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { onTaskDispatched } from "firebase-functions/v2/tasks";
 import { logger } from "firebase-functions/v2";
-import { db, storage, messaging, FieldValue, REGION } from "../lib/admin";
+import { db, storage, messaging, FieldValue, REGION, ENFORCE_APP_CHECK } from "../lib/admin";
 import { getCaller, isStaff, canManageBranch } from "../lib/context";
 
 interface CreateMeetingInput {
@@ -27,7 +27,7 @@ interface CreateMeetingInput {
 
 const JITSI_PREFIX = "SomniBoard";
 
-export const createMeeting = onCall({ region: REGION, enforceAppCheck: true }, async (request) => {
+export const createMeeting = onCall({ region: REGION, enforceAppCheck: ENFORCE_APP_CHECK }, async (request) => {
   const caller = getCaller(request);
   const d = request.data as CreateMeetingInput;
   if (!d.title || !d.dateTime) {
@@ -133,7 +133,7 @@ export const sendMeetingReminder = onTaskDispatched(
   }
 );
 
-export const recordMinutes = onCall({ region: REGION, enforceAppCheck: true, memory: "1GiB" }, async (request) => {
+export const recordMinutes = onCall({ region: REGION, enforceAppCheck: ENFORCE_APP_CHECK, memory: "1GiB" }, async (request) => {
   const caller = getCaller(request);
   if (!isStaff(caller)) throw new HttpsError("permission-denied", "Company staff only.");
   const { meetingId, content } = request.data || {};
@@ -185,7 +185,7 @@ export const recordMinutes = onCall({ region: REGION, enforceAppCheck: true, mem
   return { minuteId: minuteRef.id, pdfPath: path };
 });
 
-export const signMinutes = onCall({ region: REGION, enforceAppCheck: true }, async (request) => {
+export const signMinutes = onCall({ region: REGION, enforceAppCheck: ENFORCE_APP_CHECK }, async (request) => {
   const caller = getCaller(request);
   const { minuteId } = request.data || {};
   if (!minuteId) throw new HttpsError("invalid-argument", "minuteId required.");

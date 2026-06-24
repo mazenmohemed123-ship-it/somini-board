@@ -4,7 +4,7 @@
  * the client cannot spoof them.
  */
 import { onCall, HttpsError } from "firebase-functions/v2/https";
-import { db, FieldValue, REGION } from "../lib/admin";
+import { db, FieldValue, REGION, ENFORCE_APP_CHECK } from "../lib/admin";
 
 interface CreateElectionData {
   title: string;
@@ -17,7 +17,7 @@ interface CreateElectionData {
 }
 
 export const createElection = onCall(
-  { region: REGION, enforceAppCheck: true },
+  { region: REGION, enforceAppCheck: ENFORCE_APP_CHECK },
   async (request) => {
     const { auth } = request;
     if (!auth) throw new HttpsError("unauthenticated", "Sign in required.");

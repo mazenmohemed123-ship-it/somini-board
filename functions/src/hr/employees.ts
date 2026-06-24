@@ -14,7 +14,7 @@
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { onTaskDispatched } from "firebase-functions/v2/tasks";
 import { logger } from "firebase-functions/v2";
-import { db, FieldValue, REGION } from "../lib/admin";
+import { db, FieldValue, REGION, ENFORCE_APP_CHECK } from "../lib/admin";
 import { getCaller, canManageBranch, hashNationalId } from "../lib/context";
 
 interface EmployeeInput {
@@ -44,7 +44,7 @@ async function assertUniqueNationalId(
   }
 }
 
-export const createEmployee = onCall({ region: REGION, enforceAppCheck: true }, async (request) => {
+export const createEmployee = onCall({ region: REGION, enforceAppCheck: ENFORCE_APP_CHECK }, async (request) => {
   const caller = getCaller(request);
   const d = request.data as EmployeeInput;
   if (!d.fullName) throw new HttpsError("invalid-argument", "fullName is required.");
@@ -75,7 +75,7 @@ export const createEmployee = onCall({ region: REGION, enforceAppCheck: true }, 
   return { employeeId: ref.id };
 });
 
-export const updateEmployee = onCall({ region: REGION, enforceAppCheck: true }, async (request) => {
+export const updateEmployee = onCall({ region: REGION, enforceAppCheck: ENFORCE_APP_CHECK }, async (request) => {
   const caller = getCaller(request);
   const { employeeId, ...patch } = request.data || {};
   if (!employeeId) throw new HttpsError("invalid-argument", "employeeId required.");
@@ -96,7 +96,7 @@ export const updateEmployee = onCall({ region: REGION, enforceAppCheck: true }, 
   return { ok: true };
 });
 
-export const deleteEmployee = onCall({ region: REGION, enforceAppCheck: true }, async (request) => {
+export const deleteEmployee = onCall({ region: REGION, enforceAppCheck: ENFORCE_APP_CHECK }, async (request) => {
   const caller = getCaller(request);
   const { employeeId } = request.data || {};
   if (caller.role !== "companyAdmin" && caller.role !== "secretary") {
@@ -146,7 +146,7 @@ async function writeEmployeeBatch(tenantId: string, rows: EmployeeInput[]): Prom
 }
 
 export const bulkImportEmployees = onCall(
-  { region: REGION, enforceAppCheck: true, timeoutSeconds: 120 },
+  { region: REGION, enforceAppCheck: ENFORCE_APP_CHECK, timeoutSeconds: 120 },
   async (request) => {
     const caller = getCaller(request);
     if (caller.role !== "companyAdmin" && caller.role !== "secretary") {

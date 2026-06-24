@@ -8,10 +8,10 @@
  *  createCommittee / setCommitteeMembers — staff; members are employeeIds.
  */
 import { onCall, HttpsError } from "firebase-functions/v2/https";
-import { db, auth, FieldValue, REGION } from "../lib/admin";
+import { db, auth, FieldValue, REGION, ENFORCE_APP_CHECK } from "../lib/admin";
 import { getCaller, requireRole } from "../lib/context";
 
-export const createBranch = onCall({ region: REGION, enforceAppCheck: true }, async (request) => {
+export const createBranch = onCall({ region: REGION, enforceAppCheck: ENFORCE_APP_CHECK }, async (request) => {
   const caller = getCaller(request);
   requireRole(caller, "companyAdmin", "secretary");
   const { name, address } = request.data || {};
@@ -34,7 +34,7 @@ export const createBranch = onCall({ region: REGION, enforceAppCheck: true }, as
  * branch. Sets the branchManager role claim scoped to that branch.
  */
 export const assignBranchManager = onCall(
-  { region: REGION, enforceAppCheck: true },
+  { region: REGION, enforceAppCheck: ENFORCE_APP_CHECK },
   async (request) => {
     const caller = getCaller(request);
     requireRole(caller, "companyAdmin");
@@ -65,7 +65,7 @@ export const assignBranchManager = onCall(
 );
 
 export const createDepartment = onCall(
-  { region: REGION, enforceAppCheck: true },
+  { region: REGION, enforceAppCheck: ENFORCE_APP_CHECK },
   async (request) => {
     const caller = getCaller(request);
     requireRole(caller, "companyAdmin", "secretary");
@@ -84,7 +84,7 @@ export const createDepartment = onCall(
 );
 
 export const createCommittee = onCall(
-  { region: REGION, enforceAppCheck: true },
+  { region: REGION, enforceAppCheck: ENFORCE_APP_CHECK },
   async (request) => {
     const caller = getCaller(request);
     requireRole(caller, "companyAdmin", "secretary");
@@ -104,7 +104,7 @@ export const createCommittee = onCall(
 );
 
 export const setCommitteeMembers = onCall(
-  { region: REGION, enforceAppCheck: true },
+  { region: REGION, enforceAppCheck: ENFORCE_APP_CHECK },
   async (request) => {
     const caller = getCaller(request);
     requireRole(caller, "companyAdmin", "secretary");

@@ -12,7 +12,7 @@
  */
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { createHash } from "crypto";
-import { db, auth, FieldValue, REGION } from "../lib/admin";
+import { db, auth, FieldValue, REGION, ENFORCE_APP_CHECK } from "../lib/admin";
 
 const TOKEN_TTL_MS = 30 * 60 * 1000;
 
@@ -31,7 +31,7 @@ function hashNationalId(electionId: string, nationalId: string): string {
 }
 
 export const registerVoter = onCall(
-  { region: REGION, enforceAppCheck: true },
+  { region: REGION, enforceAppCheck: ENFORCE_APP_CHECK },
   async (request) => {
     const d = request.data as RegisterVoterData;
     if (!d.electionId || !d.fullName || !d.nationalId) {

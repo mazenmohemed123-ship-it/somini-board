@@ -9,7 +9,7 @@
  *     bump the live RTDB tally.
  */
 import { onCall, HttpsError } from "firebase-functions/v2/https";
-import { db, rtdb, FieldValue, ServerValue, REGION } from "../lib/admin";
+import { db, rtdb, FieldValue, ServerValue, REGION, ENFORCE_APP_CHECK } from "../lib/admin";
 
 interface CastVoteData {
   electionId: string;
@@ -17,7 +17,7 @@ interface CastVoteData {
 }
 
 export const castVote = onCall(
-  { region: REGION, enforceAppCheck: true },
+  { region: REGION, enforceAppCheck: ENFORCE_APP_CHECK },
   async (request) => {
     const { auth } = request;
     if (!auth) throw new HttpsError("unauthenticated", "Sign in required.");

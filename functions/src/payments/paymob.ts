@@ -12,7 +12,7 @@ import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { onRequest } from "firebase-functions/v2/https";
 import { logger } from "firebase-functions/v2";
 import { createHmac } from "crypto";
-import { db, FieldValue, REGION } from "../lib/admin";
+import { db, FieldValue, REGION, ENFORCE_APP_CHECK } from "../lib/admin";
 import { getSecret } from "../lib/secrets";
 import { resolvePricing } from "./pricing";
 
@@ -37,7 +37,7 @@ async function paymobAuth(): Promise<string> {
 const PAYMOB_SECRETS = ["PAYMOB_API_KEY", "PAYMOB_INTEGRATION_ID", "PAYMOB_IFRAME_ID", "PAYMOB_HMAC"];
 
 export const createPaymentIntent = onCall(
-  { region: REGION, enforceAppCheck: true, secrets: PAYMOB_SECRETS },
+  { region: REGION, enforceAppCheck: ENFORCE_APP_CHECK, secrets: PAYMOB_SECRETS },
   async (request) => {
     const { auth, rawRequest } = request;
     if (!auth) throw new HttpsError("unauthenticated", "Sign in required.");

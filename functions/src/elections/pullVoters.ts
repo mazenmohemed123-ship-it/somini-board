@@ -11,7 +11,7 @@
  * Idempotent: existing voter docs (same id) are merged, not duplicated.
  */
 import { onCall, HttpsError } from "firebase-functions/v2/https";
-import { db, FieldValue, REGION } from "../lib/admin";
+import { db, FieldValue, REGION, ENFORCE_APP_CHECK } from "../lib/admin";
 import { getCaller, canManageBranch } from "../lib/context";
 
 interface PullInput {
@@ -23,7 +23,7 @@ interface PullInput {
 }
 
 export const pullVotersFromEmployees = onCall(
-  { region: REGION, enforceAppCheck: true, timeoutSeconds: 120 },
+  { region: REGION, enforceAppCheck: ENFORCE_APP_CHECK, timeoutSeconds: 120 },
   async (request) => {
     const caller = getCaller(request);
     const d = request.data as PullInput;
