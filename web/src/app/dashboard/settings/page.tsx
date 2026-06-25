@@ -94,9 +94,9 @@ export default function SettingsPage() {
         )
       );
 
-      setMsg(t("settings.saved"));
+      setMsg(t("settings.saved") + " — " + t("settings.relogin"));
       setEditingUid(null);
-      setTimeout(() => setMsg(""), 3000);
+      setTimeout(() => setMsg(""), 8000);
     } catch (err: any) {
       setMsg(`${t("common.error")}: ${err.message}`);
     } finally {
