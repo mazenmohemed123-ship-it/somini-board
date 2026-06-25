@@ -169,25 +169,53 @@ export const setUserRole = onCall(
 );
 
 /**
- * claimOwnership — self-service repair for a company owner whose admin claims
- * went missing (e.g. an old account from before claims were set, or a token
- * that never picked them up). SAFE BY CONSTRUCTION: registerCompany always uses
- * `tenantId = ownerUid`, so the tenant doc id IS the owner's uid. We only grant
- * companyAdmin when a tenant doc exists whose id equals the caller's uid — i.e.
- * the caller provably created that company. Nobody can claim someone else's.
+ * claimOwnership — one-click "become a company admin".
+ *
+ * Any signed-in account can own a company: its tenant id is its own uid (the
+ * same convention registerCompany uses). If the caller already owns a tenant we
+ * just (re)grant the companyAdmin claims; if they don't, we BOOTSTRAP a fresh
+ * company for them and make them its admin. This means a brand-new account —
+ * however it signed in (email, Google, …) — becomes a full company admin
+ * instantly, and is then free to distribute roles to everyone else.
+ *
+ * SAFE BY CONSTRUCTION: a caller can only ever become admin of the tenant whose
+ * id equals their own uid. Nobody can claim or touch another company.
  */
 export const claimOwnership = onCall(
   { region: REGION, enforceAppCheck: false },
   async (request) => {
     const uid = request.auth?.uid;
     if (!uid) throw new HttpsError("unauthenticated", "Sign in required.");
+    const token = (request.auth?.token || {}) as Record<string, any>;
+    const email: string = token.email || "";
 
-    const tDoc = await db.collection("tenants").doc(uid).get();
-    if (!tDoc.exists) {
+    // If the account is already scoped to a *different* tenant (e.g. an
+    // employee created under another company), don't silently move them.
+    const existingTenant = token.firebase?.tenant ?? token.tenantId;
+    if (existingTenant && existingTenant !== uid) {
       throw new HttpsError(
-        "not-found",
-        "This account does not own a company. Register a company first, or ask your admin for access."
+        "failed-precondition",
+        "This account belongs to a company already. Ask that company's admin to change your role."
       );
+    }
+
+    const tRef = db.collection("tenants").doc(uid);
+    const tDoc = await tRef.get();
+    if (!tDoc.exists) {
+      // Bootstrap a company owned by this account.
+      const companyName =
+        (request.data?.companyName as string) ||
+        (email ? email.split("@")[0] : "") ||
+        "My Company";
+      await tRef.set({
+        tenantId: uid,
+        companyName,
+        plan: "free",
+        status: "trial",
+        contactEmail: email,
+        selfRegistered: true,
+        createdAt: FieldValue.serverTimestamp(),
+      });
     }
 
     await auth.setCustomUserClaims(uid, {
@@ -195,7 +223,7 @@ export const claimOwnership = onCall(
       tenantId: uid,
       companyId: uid,
     });
-    return { ok: true, tenantId: uid };
+    return { ok: true, tenantId: uid, bootstrapped: !tDoc.exists };
   }
 );
 

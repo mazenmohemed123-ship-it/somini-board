@@ -59,6 +59,7 @@ export default function BranchesPage() {
 
   // Per-branch expand + working state
   const [openBranch, setOpenBranch] = useState<string | null>(null);
+  const [autoOpened, setAutoOpened] = useState(false);
   const [radius, setRadius] = useState<Record<string, number>>({});
   const [capturing, setCapturing] = useState<string | null>(null);
   const [assignSel, setAssignSel] = useState<Record<string, string>>({});
@@ -86,6 +87,14 @@ export default function BranchesPage() {
     );
     return () => { ub(); ue(); ud(); };
   }, [tenantId, t]);
+
+  // Auto-expand the first branch that still has no GPS location, so the
+  // "use my location" button is immediately visible (one-time).
+  useEffect(() => {
+    if (autoOpened || branches.length === 0) return;
+    const needs = branches.find((b) => !b.location);
+    if (needs) { setOpenBranch(needs.id); setAutoOpened(true); }
+  }, [branches, autoOpened]);
 
   async function run(fn: () => Promise<any>, success = "✓") {
     setBusy(true); setMsg("");
@@ -136,6 +145,25 @@ export default function BranchesPage() {
 
       {error && <div style={{ color: "red", marginBottom: 16, padding: 12, backgroundColor: "#fee2e2", borderRadius: 8 }}>{error}</div>}
 
+      {/* How-to banner */}
+      <div style={{ marginTop: 16, padding: 14, background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 10, color: "#1e40af", fontSize: "0.9rem", lineHeight: 1.9 }}>
+        {ar ? (
+          <>
+            <strong>📍 إزاي تضبط موقع الفرع للحضور:</strong><br />
+            ١) أنشئ الفرع تحت &nbsp;•&nbsp; ٢) اضغط <strong>«إدارة»</strong> جنب الفرع &nbsp;•&nbsp;
+            ٣) <strong>وأنت واقف في مكان الفرع</strong> اضغط <strong>«📍 استخدم موقعي الحالي»</strong> — هيتسجّل GPS تلقائياً.<br />
+            بعدها الموظف اللي في الفرع ده زرار الحضور هيشتغل عنده <strong>بس</strong> لما يكون فعلاً داخل النطاق.
+          </>
+        ) : (
+          <>
+            <strong>📍 How to set a branch location for attendance:</strong><br />
+            1) Create the branch below &nbsp;•&nbsp; 2) Click <strong>“Manage”</strong> on the branch &nbsp;•&nbsp;
+            3) <strong>While standing at the branch</strong>, tap <strong>“📍 Use my current location”</strong> — GPS is saved automatically.<br />
+            After that, an employee in that branch can only check in when physically inside the radius.
+          </>
+        )}
+      </div>
+
       <div className="grid" style={{ gridTemplateColumns: "1fr 1fr", marginTop: 24, gap: 24 }}>
         <section className="card">
           <h2>{t("branch.add")}</h2>
@@ -180,9 +208,13 @@ export default function BranchesPage() {
               <div>
                 <strong style={{ fontSize: "1.1rem" }}>{b.name}</strong>
                 {b.address && <span style={{ color: "var(--muted)", marginInlineStart: 8 }}>{b.address}</span>}
-                <div style={{ fontSize: "0.8rem", marginTop: 4, display: "flex", gap: 12, flexWrap: "wrap" }}>
-                  <span style={{ color: b.location ? "green" : "var(--muted)" }}>
-                    {b.location ? `📍 ${t("branch.locationSet")}` : `📍 ${t("branch.noLocation")}`}
+                <div style={{ fontSize: "0.8rem", marginTop: 6, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                  <span style={{
+                    color: b.location ? "#065f46" : "#9a3412",
+                    background: b.location ? "#d1fae5" : "#ffedd5",
+                    padding: "3px 10px", borderRadius: 20, fontWeight: 600,
+                  }}>
+                    {b.location ? `📍 ${t("branch.locationSet")}` : `⚠️ ${t("branch.noLocation")}`}
                   </span>
                   <span style={{ color: "var(--muted)" }}>👥 {list.length}</span>
                   <span style={{ color: "var(--muted)" }}>
@@ -197,21 +229,35 @@ export default function BranchesPage() {
 
             {isOpen && (
               <div style={{ marginTop: 16, borderTop: "1px solid var(--border)", paddingTop: 16 }}>
-                {/* Location */}
-                <h3 style={{ fontSize: "0.95rem" }}>📍 {t("branch.location")}</h3>
-                <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end", marginTop: 8 }}>
-                  <label style={{ flex: "0 0 160px" }}>{t("branch.radius")}
-                    <input type="number" min={20} value={radius[b.id] ?? b.geofenceRadius ?? 150}
-                      onChange={(e) => setRadius({ ...radius, [b.id]: Number(e.target.value) })} /></label>
-                  <button className="btn" disabled={capturing === b.id} onClick={() => captureLocation(b.id)} style={{ marginBottom: 2 }}>
-                    {capturing === b.id ? t("branch.capturing") : t("branch.captureLocation")}
-                  </button>
+                {/* Location — most important, highlighted when not yet set */}
+                <div style={{
+                  padding: 14, borderRadius: 10,
+                  background: b.location ? "#f0fdf4" : "#fff7ed",
+                  border: `1px solid ${b.location ? "#bbf7d0" : "#fed7aa"}`,
+                }}>
+                  <h3 style={{ fontSize: "1rem", margin: 0 }}>📍 {t("branch.location")}</h3>
+                  {!b.location && (
+                    <p style={{ fontSize: "0.82rem", color: "#9a3412", margin: "6px 0 0" }}>
+                      {ar
+                        ? "روح مكان الفرع واضغط الزر — هياخد موقعك تلقائياً. لازم تسمح للمتصفح بالوصول للموقع."
+                        : "Go to the branch and tap the button — it grabs your location automatically. Allow location access when asked."}
+                    </p>
+                  )}
+                  <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-end", marginTop: 12 }}>
+                    <label style={{ flex: "0 0 150px" }}>{t("branch.radius")}
+                      <input type="number" min={20} value={radius[b.id] ?? b.geofenceRadius ?? 150}
+                        onChange={(e) => setRadius({ ...radius, [b.id]: Number(e.target.value) })} /></label>
+                    <button className="btn" disabled={capturing === b.id} onClick={() => captureLocation(b.id)}
+                      style={{ marginBottom: 2, fontSize: "1rem", padding: "10px 18px" }}>
+                      {capturing === b.id ? t("branch.capturing") : t("branch.captureLocation")}
+                    </button>
+                  </div>
+                  {b.location && (
+                    <p style={{ fontSize: "0.8rem", color: "#065f46", marginTop: 8, fontWeight: 600 }}>
+                      ✓ {b.location.lat.toFixed(5)}, {b.location.lng.toFixed(5)} · {ar ? "النطاق" : "radius"} {b.geofenceRadius ?? 150}m
+                    </p>
+                  )}
                 </div>
-                {b.location && (
-                  <p style={{ fontSize: "0.78rem", color: "var(--muted)", marginTop: 6 }}>
-                    {b.location.lat.toFixed(5)}, {b.location.lng.toFixed(5)} · {b.geofenceRadius ?? 150}m
-                  </p>
-                )}
 
                 {/* Manager */}
                 <h3 style={{ fontSize: "0.95rem", marginTop: 18 }}>👔 {t("branch.assignManager")}</h3>
