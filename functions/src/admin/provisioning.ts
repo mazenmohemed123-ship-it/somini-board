@@ -168,6 +168,79 @@ export const setUserRole = onCall(
   }
 );
 
+export const listTenantUsers = onCall(
+  { region: REGION, enforceAppCheck: ENFORCE_APP_CHECK },
+  async (request) => {
+    const caller = request.auth?.token;
+    if (!caller) throw new HttpsError("unauthenticated", "Sign in required.");
+    const tenantId = caller.firebase?.tenant ?? (caller as any).tenantId;
+    const role = caller.role as string;
+
+    if (role !== "superAdmin" && role !== "companyAdmin") {
+      throw new HttpsError("permission-denied", "Admin access required.");
+    }
+
+    const targetTenantId = (request.data || {}).tenantId;
+    if (!targetTenantId) throw new HttpsError("invalid-argument", "tenantId required.");
+
+    // companyAdmin can only list users in their own tenant.
+    if (role === "companyAdmin" && targetTenantId !== tenantId) {
+      throw new HttpsError("permission-denied", "Cannot list other tenants.");
+    }
+
+    // List all users and filter by tenantId claim. This is the simplest approach
+    // for project-level users. For Identity Platform tenants, we'd iterate the
+    // tenantAuth API, but that's handled separately below.
+    let users: any[] = [];
+    let pageToken: string | undefined;
+
+    // Project-level users (created via registerCompany).
+    do {
+      const result = await auth.listUsers(1000, pageToken);
+      users.push(
+        ...result.users
+          .filter((u) => {
+            const claims = u.customClaims || {};
+            return claims.tenantId === targetTenantId;
+          })
+          .map((u) => ({
+            uid: u.uid,
+            email: u.email || "",
+            displayName: u.displayName || "",
+            role: u.customClaims?.role || "—",
+            branchId: u.customClaims?.branchId || null,
+            employeeId: u.customClaims?.employeeId || null,
+          }))
+      );
+      pageToken = result.pageToken;
+    } while (pageToken);
+
+    // For Identity Platform tenants, also try listing from the tenant's auth instance.
+    try {
+      const tenantAuth = auth.tenantManager().authForTenant(targetTenantId);
+      let tenantPageToken: string | undefined;
+      do {
+        const result = await tenantAuth.listUsers(1000, tenantPageToken);
+        users.push(
+          ...result.users.map((u) => ({
+            uid: u.uid,
+            email: u.email || "",
+            displayName: u.displayName || "",
+            role: u.customClaims?.role || "—",
+            branchId: u.customClaims?.branchId || null,
+            employeeId: u.customClaims?.employeeId || null,
+          }))
+        );
+        tenantPageToken = result.pageToken;
+      } while (tenantPageToken);
+    } catch (e) {
+      // Tenant may not be an Identity Platform tenant; that's fine.
+    }
+
+    return { users };
+  }
+);
+
 export const createIntegration = onCall(
   { region: REGION, enforceAppCheck: ENFORCE_APP_CHECK },
   async (request) => {

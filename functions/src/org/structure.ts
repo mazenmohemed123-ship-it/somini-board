@@ -121,3 +121,17 @@ export const setCommitteeMembers = onCall(
     return { ok: true, count: members.length };
   }
 );
+
+export const getAllBranches = onCall(
+  { region: REGION, enforceAppCheck: ENFORCE_APP_CHECK },
+  async (request) => {
+    const caller = getCaller(request);
+    const snap = await db.collection("branches").where("tenantId", "==", caller.tenantId).orderBy("name").get();
+    const branches = snap.docs.map((doc) => ({
+      id: doc.id,
+      name: doc.data().name,
+      address: doc.data().address,
+    }));
+    return { branches };
+  }
+);

@@ -17,6 +17,7 @@ export function DashboardNav() {
     { href: "/dashboard/motions", label: t("nav.motions"), icon: "📋" },
     { href: "/dashboard/meetings", label: t("nav.meetings"), icon: "🎥" },
     { href: "/dashboard/integrations", label: t("nav.integrations"), icon: "🔌" },
+    { href: "/dashboard/settings", label: t("settings.title"), icon: "⚙️" },
   ];
 
   return <SideNav links={links} title={t("app.name")} homeHref="/dashboard" />;
