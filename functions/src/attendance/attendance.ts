@@ -21,7 +21,8 @@
  */
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { onSchedule } from "firebase-functions/v2/scheduler";
-import { db, auth, FieldValue, REGION, ENFORCE_APP_CHECK, logger } from "../lib/admin";
+import { logger } from "firebase-functions";
+import { db, auth, FieldValue, REGION, ENFORCE_APP_CHECK } from "../lib/admin";
 import { getCaller, requireRole, isStaff } from "../lib/context";
 
 export interface AttendanceConfig {
@@ -613,6 +614,5 @@ export const sendAttendanceAlerts = onSchedule(
     }
 
     logger.info(`Sent ${alertCount} attendance alerts across all tenants`);
-    return { alertCount };
   }
 );
