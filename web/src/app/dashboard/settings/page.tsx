@@ -27,7 +27,7 @@ interface Branch {
 export default function SettingsPage() {
   const router = useRouter();
   const { t, locale } = useI18n();
-  const { user, loading, tenantId } = useAuth();
+  const { user, loading, tenantId, role } = useAuth();
   const ar = locale === "ar";
 
   const [users, setUsers] = useState<User[]>([]);
@@ -46,11 +46,11 @@ export default function SettingsPage() {
     if (!loading) {
       if (!user) {
         router.replace("/auth");
-      } else if (user.role !== "companyAdmin" && user.role !== "superAdmin") {
+      } else if (role !== "companyAdmin" && role !== "superAdmin") {
         router.replace("/dashboard");
       }
     }
-  }, [user, loading, router]);
+  }, [user, loading, role, router]);
 
   // Fetch users and branches.
   useEffect(() => {
@@ -111,7 +111,7 @@ export default function SettingsPage() {
     { value: "secretary", label: t("settings.roles.secretary") },
     { value: "hr", label: t("settings.roles.hr") },
     { value: "branchManager", label: t("settings.roles.branchManager") },
-    ...(user?.role === "superAdmin"
+    ...(role === "superAdmin"
       ? [{ value: "companyAdmin", label: t("settings.roles.companyAdmin") }]
       : []),
   ];
