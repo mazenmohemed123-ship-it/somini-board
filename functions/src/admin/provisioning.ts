@@ -9,6 +9,7 @@
  *                     one-time API key (only the hash is stored).
  */
 import { onCall, HttpsError } from "firebase-functions/v2/https";
+import { logger } from "firebase-functions";
 import { randomBytes, createHash } from "crypto";
 import { db, auth, FieldValue, REGION, ENFORCE_APP_CHECK } from "../lib/admin";
 
@@ -247,56 +248,64 @@ export const listTenantUsers = onCall(
       throw new HttpsError("permission-denied", "Cannot list other tenants.");
     }
 
-    // List all users and filter by tenantId claim. This is the simplest approach
-    // for project-level users. For Identity Platform tenants, we'd iterate the
-    // tenantAuth API, but that's handled separately below.
-    let users: any[] = [];
-    let pageToken: string | undefined;
+    // Build the list primarily from the `employees` collection (always readable
+    // via the Admin SDK), enriching each who has a login with their live role
+    // claim. This avoids relying on auth.listUsers() — which iterates the entire
+    // project and can fail/scale poorly — and never surfaces a bare "internal".
+    const byUid = new Map<string, any>();
 
-    // Project-level users (created via registerCompany).
-    do {
-      const result = await auth.listUsers(1000, pageToken);
-      users.push(
-        ...result.users
-          .filter((u) => {
-            const claims = u.customClaims || {};
-            return claims.tenantId === targetTenantId;
-          })
-          .map((u) => ({
-            uid: u.uid,
-            email: u.email || "",
-            displayName: u.displayName || "",
-            role: u.customClaims?.role || "—",
-            branchId: u.customClaims?.branchId || null,
-            employeeId: u.customClaims?.employeeId || null,
-          }))
-      );
-      pageToken = result.pageToken;
-    } while (pageToken);
-
-    // For Identity Platform tenants, also try listing from the tenant's auth instance.
     try {
-      const tenantAuth = auth.tenantManager().authForTenant(targetTenantId);
-      let tenantPageToken: string | undefined;
-      do {
-        const result = await tenantAuth.listUsers(1000, tenantPageToken);
-        users.push(
-          ...result.users.map((u) => ({
-            uid: u.uid,
-            email: u.email || "",
-            displayName: u.displayName || "",
-            role: u.customClaims?.role || "—",
-            branchId: u.customClaims?.branchId || null,
-            employeeId: u.customClaims?.employeeId || null,
-          }))
-        );
-        tenantPageToken = result.pageToken;
-      } while (tenantPageToken);
-    } catch (e) {
-      // Tenant may not be an Identity Platform tenant; that's fine.
+      const empSnap = await db
+        .collection("employees")
+        .where("tenantId", "==", targetTenantId)
+        .get();
+      for (const doc of empSnap.docs) {
+        const e = doc.data();
+        if (!e.authUid) continue; // only accounts that can sign in get a role
+        let claimRole = "employee";
+        let branchId = e.branchId || null;
+        try {
+          const u = await auth.getUser(e.authUid);
+          claimRole = (u.customClaims?.role as string) || "employee";
+          branchId = (u.customClaims?.branchId as string) || branchId;
+        } catch {
+          // Auth lookup failed — fall back to the employee doc values.
+        }
+        byUid.set(e.authUid, {
+          uid: e.authUid,
+          email: e.email || "",
+          displayName: e.fullName || "",
+          role: claimRole,
+          branchId,
+          employeeId: doc.id,
+        });
+      }
+    } catch (err) {
+      logger.error("listTenantUsers: employees read failed", err);
     }
 
-    return { users };
+    // Always include the calling admin themselves (they may have no employee doc).
+    const callerUid = request.auth!.uid;
+    if (!byUid.has(callerUid)) {
+      try {
+        const me = await auth.getUser(callerUid);
+        byUid.set(callerUid, {
+          uid: callerUid,
+          email: me.email || "",
+          displayName: me.displayName || "(admin)",
+          role: (me.customClaims?.role as string) || role,
+          branchId: (me.customClaims?.branchId as string) || null,
+          employeeId: (me.customClaims?.employeeId as string) || null,
+        });
+      } catch {
+        byUid.set(callerUid, {
+          uid: callerUid, email: caller.email || "", displayName: "(admin)",
+          role, branchId: null, employeeId: null,
+        });
+      }
+    }
+
+    return { users: Array.from(byUid.values()) };
   }
 );
 
