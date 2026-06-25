@@ -6,6 +6,8 @@
  */
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { signOut } from "firebase/auth";
+import { auth } from "@/lib/firebase";
 import { useAuth } from "@/lib/auth-context";
 import { call } from "@/lib/api";
 import { useI18n } from "@/i18n";
@@ -27,7 +29,7 @@ interface Branch {
 export default function SettingsPage() {
   const router = useRouter();
   const { t, locale } = useI18n();
-  const { user, loading, tenantId, role } = useAuth();
+  const { user, loading, tenantId, role, refreshClaims } = useAuth();
   const ar = locale === "ar";
 
   const [users, setUsers] = useState<User[]>([]);
@@ -35,22 +37,22 @@ export default function SettingsPage() {
   const [error, setError] = useState("");
   const [msg, setMsg] = useState("");
   const [loadingUsers, setLoadingUsers] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   const [editingUid, setEditingUid] = useState<string | null>(null);
   const [editRole, setEditRole] = useState("");
   const [editBranchId, setEditBranchId] = useState("");
   const [saving, setSaving] = useState(false);
 
-  // Guard: only companyAdmin or above can access.
+  const isAdmin = role === "companyAdmin" || role === "superAdmin";
+
+  // Only bounce out if genuinely signed out. We deliberately DON'T redirect on
+  // a non-admin role — a stale token can briefly read the wrong role and that
+  // produced a jarring "open then bounce". Instead we show an access card with
+  // a one-click "refresh permissions" below.
   useEffect(() => {
-    if (!loading) {
-      if (!user) {
-        router.replace("/auth");
-      } else if (role !== "companyAdmin" && role !== "superAdmin") {
-        router.replace("/dashboard");
-      }
-    }
-  }, [user, loading, role, router]);
+    if (!loading && !user) router.replace("/auth");
+  }, [user, loading, router]);
 
   // Fetch users and branches.
   useEffect(() => {
@@ -105,6 +107,41 @@ export default function SettingsPage() {
   }
 
   if (loading) return null;
+
+  // Non-admin (or stale-token) view: no bounce — offer an in-place fix.
+  if (!isAdmin) {
+    return (
+      <main className="container">
+        <h1>{t("settings.title")}</h1>
+        <section className="card" style={{ marginTop: 16, textAlign: "center", padding: 32 }}>
+          <div style={{ fontSize: "2.5rem" }}>🔒</div>
+          <h2 style={{ marginTop: 8 }}>{t("settings.adminOnly")}</h2>
+          <p style={{ color: "var(--muted)", marginTop: 8 }}>{t("settings.adminOnlyHint")}</p>
+          <p style={{ color: "var(--muted)", marginTop: 4, fontSize: "0.85rem" }}>
+            {ar ? "دورك الحالي" : "Your current role"}: <strong>{role || (ar ? "بدون" : "none")}</strong>
+          </p>
+          <div style={{ display: "flex", gap: 10, justifyContent: "center", marginTop: 20, flexWrap: "wrap" }}>
+            <button
+              className="btn"
+              disabled={refreshing}
+              onClick={async () => {
+                setRefreshing(true);
+                try { await refreshClaims(); } finally { setRefreshing(false); }
+              }}
+            >
+              {refreshing ? t("common.loading") : t("settings.refreshPerms")}
+            </button>
+            <button
+              className="btn btn-outline"
+              onClick={async () => { await signOut(auth); router.replace("/auth"); }}
+            >
+              {ar ? "تسجيل خروج ودخول" : "Sign out & back in"}
+            </button>
+          </div>
+        </section>
+      </main>
+    );
+  }
 
   const roleOptions = [
     { value: "employee", label: t("settings.roles.employee") },
