@@ -126,10 +126,22 @@ export default function SettingsPage() {
               disabled={refreshing}
               onClick={async () => {
                 setRefreshing(true);
-                try { await refreshClaims(); } finally { setRefreshing(false); }
+                setError("");
+                try {
+                  // Self-heal: if this account owns a company, restore admin
+                  // claims, then refresh the token so they take effect now.
+                  await call("claimOwnership", {});
+                  await refreshClaims();
+                } catch (err: any) {
+                  // Not an owner — just refresh in case claims were merely stale.
+                  try { await refreshClaims(); } catch {}
+                  setError(`${t("common.error")}: ${err.message}`);
+                } finally {
+                  setRefreshing(false);
+                }
               }}
             >
-              {refreshing ? t("common.loading") : t("settings.refreshPerms")}
+              {refreshing ? t("common.loading") : t("settings.makeMeAdmin")}
             </button>
             <button
               className="btn btn-outline"
@@ -138,6 +150,7 @@ export default function SettingsPage() {
               {ar ? "تسجيل خروج ودخول" : "Sign out & back in"}
             </button>
           </div>
+          {error && <p style={{ color: "red", marginTop: 12 }}>{error}</p>}
         </section>
       </main>
     );

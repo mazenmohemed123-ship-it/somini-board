@@ -180,6 +180,7 @@
   "settings.adminOnly": "للمسؤولين فقط",
   "settings.adminOnlyHint": "هذه الصفحة لمسؤول الشركة. لو إنت المسؤول وللتو سجّلت أو اتعطّيت صلاحية، حدّث صلاحياتك من الزر تحت.",
   "settings.refreshPerms": "🔄 حدّث صلاحياتي",
+  "settings.makeMeAdmin": "🔑 استرجع صلاحيات الادمن",
   "settings.roles.employee": "موظف",
   "settings.roles.secretary": "سكرتير",
   "settings.roles.hr": "HR",

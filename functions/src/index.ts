@@ -70,7 +70,7 @@ export { api } from "./integrations/api";
 export { deliverWebhook } from "./integrations/webhooks";
 
 // --- Admin / provisioning ---
-export { registerCompany, provisionCompany, setUserRole, listTenantUsers, createIntegration } from "./admin/provisioning";
+export { registerCompany, provisionCompany, setUserRole, claimOwnership, listTenantUsers, createIntegration } from "./admin/provisioning";
 
 // --- Platform owner (superAdmin) dashboard ---
 export {

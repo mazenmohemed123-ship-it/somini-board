@@ -168,6 +168,37 @@ export const setUserRole = onCall(
   }
 );
 
+/**
+ * claimOwnership — self-service repair for a company owner whose admin claims
+ * went missing (e.g. an old account from before claims were set, or a token
+ * that never picked them up). SAFE BY CONSTRUCTION: registerCompany always uses
+ * `tenantId = ownerUid`, so the tenant doc id IS the owner's uid. We only grant
+ * companyAdmin when a tenant doc exists whose id equals the caller's uid — i.e.
+ * the caller provably created that company. Nobody can claim someone else's.
+ */
+export const claimOwnership = onCall(
+  { region: REGION, enforceAppCheck: false },
+  async (request) => {
+    const uid = request.auth?.uid;
+    if (!uid) throw new HttpsError("unauthenticated", "Sign in required.");
+
+    const tDoc = await db.collection("tenants").doc(uid).get();
+    if (!tDoc.exists) {
+      throw new HttpsError(
+        "not-found",
+        "This account does not own a company. Register a company first, or ask your admin for access."
+      );
+    }
+
+    await auth.setCustomUserClaims(uid, {
+      role: "companyAdmin",
+      tenantId: uid,
+      companyId: uid,
+    });
+    return { ok: true, tenantId: uid };
+  }
+);
+
 export const listTenantUsers = onCall(
   { region: REGION, enforceAppCheck: ENFORCE_APP_CHECK },
   async (request) => {
