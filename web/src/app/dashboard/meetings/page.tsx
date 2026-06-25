@@ -28,8 +28,11 @@ interface Meeting {
 export default function MeetingsPage() {
   const router = useRouter();
   const { t, locale } = useI18n();
-  const { user, loading, tenantId } = useAuth();
+  const { user, loading, tenantId, role } = useAuth();
   const ar = locale === "ar";
+  // Only admins / secretaries (meeting hosts) can schedule meetings. Everyone
+  // else — employees, hr, branch managers — can still join and view.
+  const canHost = role === "companyAdmin" || role === "secretary" || role === "superAdmin";
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [form, setForm] = useState({ title: "", dateTime: 0, type: "general" });
   const [joined, setJoined] = useState<string | null>(null);
@@ -97,6 +100,7 @@ export default function MeetingsPage() {
 
       {error && <div style={{ color: "red", marginBottom: 16, padding: 12, backgroundColor: "#fee2e2", borderRadius: 8 }}>{error}</div>}
 
+      {canHost && (
       <section className="card" style={{ marginTop: 16 }}>
         <h2>{t("meeting.create")}</h2>
         <form onSubmit={createMeeting} style={{ marginTop: 8 }}>
@@ -123,6 +127,7 @@ export default function MeetingsPage() {
           {msg && <p style={{ marginTop: 12, textAlign: "center", fontWeight: 600 }}>{msg}</p>}
         </form>
       </section>
+      )}
 
       <section className="card" style={{ marginTop: 16 }}>
         {meetings.map((m) => (
@@ -138,9 +143,11 @@ export default function MeetingsPage() {
                 <button className="btn" style={{ padding: "4px 12px" }} onClick={() => setJoined(joined === m.id ? null : m.id)}>
                   {t("meeting.join")}
                 </button>
+                {canHost && (
                 <button className="btn btn-outline" style={{ padding: "4px 12px" }} onClick={() => setMinutesFor(minutesFor === m.id ? null : m.id)}>
                   {t("meeting.recordMinutes")}
                 </button>
+                )}
                 {m.minutesUrl && (
                   <a
                     className="btn btn-outline"

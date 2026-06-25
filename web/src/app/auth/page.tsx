@@ -14,6 +14,7 @@ import styles from "./auth.module.css";
 export default function AuthPage() {
   const { t, locale } = useI18n();
   const router = useRouter();
+  const [accountType, setAccountType] = useState<"company" | "employee">("company");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -120,6 +121,48 @@ export default function AuthPage() {
 
           <h2 className={styles.formTitle}>{ar ? "تسجيل الدخول" : "Sign In"}</h2>
 
+          {/* Company vs. employee selector. Both sign in the same way; this
+              just tailors the helper text and the bottom call-to-action. */}
+          <div style={{ display: "flex", gap: 8, marginBottom: 18 }}>
+            <button
+              type="button"
+              onClick={() => setAccountType("company")}
+              style={{
+                flex: 1, padding: "10px 12px", borderRadius: 10, cursor: "pointer",
+                fontWeight: 700, fontSize: "0.9rem",
+                border: accountType === "company" ? "2px solid var(--primary)" : "1px solid var(--border)",
+                background: accountType === "company" ? "var(--primary)" : "transparent",
+                color: accountType === "company" ? "#fff" : "var(--muted)",
+              }}
+            >
+              🏢 {ar ? "شركة" : "Company"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setAccountType("employee")}
+              style={{
+                flex: 1, padding: "10px 12px", borderRadius: 10, cursor: "pointer",
+                fontWeight: 700, fontSize: "0.9rem",
+                border: accountType === "employee" ? "2px solid var(--primary)" : "1px solid var(--border)",
+                background: accountType === "employee" ? "var(--primary)" : "transparent",
+                color: accountType === "employee" ? "#fff" : "var(--muted)",
+              }}
+            >
+              👤 {ar ? "موظف" : "Employee"}
+            </button>
+          </div>
+
+          {accountType === "employee" && (
+            <p style={{
+              fontSize: "0.82rem", color: "var(--muted)", marginBottom: 14,
+              padding: "10px 12px", background: "var(--surface-2, rgba(0,0,0,0.03))", borderRadius: 8,
+            }}>
+              {ar
+                ? "ادخل بالبريد وكلمة المرور اللي أعطاهم لك مسؤول شركتك. لو لسه ماعندكش حساب، اطلب من المسؤول إنشاءه لك."
+                : "Sign in with the email and password your company admin gave you. No account yet? Ask your admin to create one for you."}
+            </p>
+          )}
+
           <form onSubmit={signIn} className={styles.form}>
             <div className={styles.formGroup}>
               <label htmlFor="email" className={styles.label}>{ar ? "البريد الإلكتروني" : "Email"}</label>
@@ -165,6 +208,8 @@ export default function AuthPage() {
             </button>
           </form>
 
+          {accountType === "company" && (
+          <>
           <div className={styles.dividerWithText}><span>{ar ? "أو" : "OR"}</span></div>
 
           <button type="button" onClick={signInWithGoogle} disabled={googleBusy || busy} className={styles.googleButton}>
@@ -181,6 +226,16 @@ export default function AuthPage() {
             {ar ? "ليس لديك حساب؟ " : "Don't have an account? "}
             <a href="/signup" className={styles.signupLink}>{ar ? "أنشئ شركتك" : "Create your company"}</a>
           </p>
+          </>
+          )}
+
+          {accountType === "employee" && (
+            <p className={styles.signupText} style={{ marginTop: 8 }}>
+              {ar
+                ? "حساب الموظف يُنشأ بواسطة مسؤول الشركة فقط."
+                : "Employee accounts are created by your company admin only."}
+            </p>
+          )}
 
           <footer className={styles.footer}>
             <a href="#">{ar ? "الشروط" : "Terms"}</a><span>·</span>
