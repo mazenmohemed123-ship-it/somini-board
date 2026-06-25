@@ -62,6 +62,8 @@
   "attendance.noAlerts": "لا توجد تنبيهات",
   "attendance.exportExcel": "تصدير إلى Excel",
   "attendance.exporting": "جارٍ التصدير...",
+  "attendance.noAccess": "لا توجد صلاحية حضور لهذا الحساب",
+  "attendance.noAccessHint": "هذه الصفحة للموظفين (لتسجيل الحضور والانصراف) وللمديرين (لعرض التقارير). حسابك ليس له ملف موظف ولا دور إداري. لو كنت موظفاً، اطلب من المسؤول إنشاء حساب دخول لك.",
   "employee.add": "إضافة موظف",
   "employee.import": "استيراد CSV",
   "employee.phone": "الهاتف",

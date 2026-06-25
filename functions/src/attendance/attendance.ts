@@ -92,6 +92,29 @@ async function loadConfig(tenantId: string): Promise<AttendanceConfig> {
   return { ...DEFAULT_CONFIG, ...(cfg ?? {}) };
 }
 
+/**
+ * Run a Firestore query, translating the "requires an index" /
+ * FAILED_PRECONDITION error into a clear client-facing message instead of a
+ * generic "internal" error. A freshly deployed composite index can take a few
+ * minutes to build; during that window queries fail with this code.
+ */
+async function runQuery(
+  query: FirebaseFirestore.Query
+): Promise<FirebaseFirestore.QuerySnapshot> {
+  try {
+    return await query.get();
+  } catch (err: any) {
+    if (err?.code === 9 || /FAILED_PRECONDITION|requires an index/i.test(String(err?.message))) {
+      logger.error("Attendance query needs an index (still building?):", err?.message);
+      throw new HttpsError(
+        "failed-precondition",
+        "The report index is still being built. Please try again in a few minutes."
+      );
+    }
+    throw err;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Configuration (admin)
 // ---------------------------------------------------------------------------
@@ -361,12 +384,13 @@ export const getMonthlyReport = onCall(
     }
 
     const monthStr = `${year}-${String(month).padStart(2, "0")}`;
-    const snapshot = await db
-      .collection("attendance")
-      .where("tenantId", "==", caller.tenantId)
-      .where("date", ">=", `${monthStr}-01`)
-      .where("date", "<", `${monthStr}-32`)
-      .get();
+    const snapshot = await runQuery(
+      db
+        .collection("attendance")
+        .where("tenantId", "==", caller.tenantId)
+        .where("date", ">=", `${monthStr}-01`)
+        .where("date", "<", `${monthStr}-32`)
+    );
 
     const records = snapshot.docs.map((d) => d.data() as any);
     const empMap = new Map<string, any>();
@@ -440,21 +464,23 @@ export const getEmployeeLocations = onCall(
     if (!isStaff(caller)) throw new HttpsError("permission-denied", "Staff only.");
     const { branchId } = request.data || {};
 
+    // date == today already scopes to today's records; no extra time filter
+    // is needed (and keeping it minimal avoids a wider composite index).
     const todayStr = new Date().toISOString().slice(0, 10);
-    const query = db
+    let query = db
       .collection("attendance")
       .where("tenantId", "==", caller.tenantId)
-      .where("date", "==", todayStr)
-      .where("checkInAt", ">", new Date(Date.now() - 24 * 60 * 60 * 1000));
+      .where("date", "==", todayStr);
+    if (branchId) query = query.where("branchId", "==", branchId);
 
-    const snapshot = await (branchId ? query.where("branchId", "==", branchId) : query).get();
+    const snapshot = await runQuery(query);
 
     const locations: EmployeeLocation[] = [];
     const empMap = new Map<string, any>();
 
     // Get employee data
     const empDocs = await (branchId
-      ? db.collection("employees").where("branchId", "==", branchId).where("tenantId", "==", caller.tenantId)
+      ? db.collection("employees").where("tenantId", "==", caller.tenantId).where("branchId", "==", branchId)
       : db.collection("employees").where("tenantId", "==", caller.tenantId)
     ).get();
 
@@ -497,14 +523,15 @@ export const exportAttendanceExcel = onCall(
     }
 
     const monthStr = `${year}-${String(month).padStart(2, "0")}`;
-    const snapshot = await db
-      .collection("attendance")
-      .where("tenantId", "==", caller.tenantId)
-      .where("date", ">=", `${monthStr}-01`)
-      .where("date", "<", `${monthStr}-32`)
-      .orderBy("date")
-      .orderBy("employeeId")
-      .get();
+    const snapshot = await runQuery(
+      db
+        .collection("attendance")
+        .where("tenantId", "==", caller.tenantId)
+        .where("date", ">=", `${monthStr}-01`)
+        .where("date", "<", `${monthStr}-32`)
+        .orderBy("date")
+        .orderBy("employeeId")
+    );
 
     const records = snapshot.docs.map((d) => d.data() as any);
 

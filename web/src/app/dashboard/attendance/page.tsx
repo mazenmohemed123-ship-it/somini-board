@@ -54,6 +54,7 @@ export default function AttendancePage() {
   const { user, loading, role, tenantId } = useAuth();
   const ar = locale === "ar";
   const [myEmployeeId, setMyEmployeeId] = useState<string | null>(null);
+  const [claimsChecked, setClaimsChecked] = useState(false);
 
   const isManager = role === "companyAdmin" || role === "hr" || role === "secretary" || role === "branchManager";
   const isAdmin = role === "companyAdmin";
@@ -90,7 +91,9 @@ export default function AttendancePage() {
   // Read employeeId from the auth token claims.
   useEffect(() => {
     if (!user) return;
-    user.getIdTokenResult().then((tok) => setMyEmployeeId((tok.claims as any).employeeId ?? null));
+    user.getIdTokenResult()
+      .then((tok) => setMyEmployeeId((tok.claims as any).employeeId ?? null))
+      .finally(() => setClaimsChecked(true));
   }, [user]);
 
   // Manager data: today's records, employees, branches.
@@ -287,6 +290,17 @@ export default function AttendancePage() {
             )}
           </div>
           {msg && <p style={{ marginTop: 14, fontWeight: 600, color: msgOk ? "#166534" : "#991b1b" }}>{msg}</p>}
+        </section>
+      )}
+
+      {/* ───────── NO-ACCESS FALLBACK (no employee profile & not a manager) ───────── */}
+      {claimsChecked && !myEmployeeId && !isManager && (
+        <section className="card" style={{ marginTop: 16, textAlign: "center" }}>
+          <div style={{ fontSize: "2rem" }}>🪪</div>
+          <h2 style={{ marginTop: 8 }}>{t("attendance.noAccess")}</h2>
+          <p style={{ marginTop: 8, color: "var(--muted)", maxWidth: 520, margin: "8px auto 0" }}>
+            {t("attendance.noAccessHint")}
+          </p>
         </section>
       )}
 

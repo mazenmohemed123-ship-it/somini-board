@@ -62,6 +62,8 @@
   "attendance.noAlerts": "No alerts",
   "attendance.exportExcel": "Export to Excel",
   "attendance.exporting": "Exporting...",
+  "attendance.noAccess": "No attendance access for this account",
+  "attendance.noAccessHint": "This page is for employees (to check in/out) and managers (to view reports). Your account has neither an employee profile nor a management role. If you are an employee, ask your admin to create a login for you.",
   "employee.add": "Add employee",
   "employee.import": "Import CSV",
   "employee.phone": "Phone",
