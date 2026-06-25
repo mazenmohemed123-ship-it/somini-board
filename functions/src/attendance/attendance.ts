@@ -11,12 +11,17 @@
  *  checkIn  (employee): verify the caller is inside their branch geofence,
  *      record check-in, and compute present/late + late minutes.
  *  checkOut (employee): record check-out and worked minutes.
+ *  getMonthlyReport (staff): get attendance stats for a month.
+ *  getEmployeeLocations (manager): get real-time locations of branch employees.
+ *  exportAttendanceExcel (staff): export attendance data as Excel file (async).
+ *  sendAttendanceAlerts (scheduled): send daily notifications for late/absent employees.
  *
  * Attendance is written exclusively by these functions (Admin SDK), so the
  * Firestore rules keep the collection read-only for clients.
  */
 import { onCall, HttpsError } from "firebase-functions/v2/https";
-import { db, auth, FieldValue, REGION, ENFORCE_APP_CHECK } from "../lib/admin";
+import { onSchedule } from "firebase-functions/v2/scheduler";
+import { db, auth, FieldValue, REGION, ENFORCE_APP_CHECK, logger } from "../lib/admin";
 import { getCaller, requireRole, isStaff } from "../lib/context";
 
 export interface AttendanceConfig {
@@ -319,5 +324,295 @@ export const checkOut = onCall(
     });
 
     return { ok: true, ...result };
+  }
+);
+
+// ---------------------------------------------------------------------------
+// Monthly Reports (staff)
+// ---------------------------------------------------------------------------
+
+export interface MonthlyReportStats {
+  year: number;
+  month: number;
+  totalEmployees: number;
+  presentDays: number;
+  lateDays: number;
+  absentDays: number;
+  averageWorkedMinutes: number;
+  employeeStats: Array<{
+    employeeId: string;
+    fullName: string;
+    presentDays: number;
+    lateDays: number;
+    absentDays: number;
+    totalWorkedMinutes: number;
+  }>;
+}
+
+export const getMonthlyReport = onCall(
+  { region: REGION, enforceAppCheck: ENFORCE_APP_CHECK },
+  async (request) => {
+    const caller = getCaller(request);
+    if (!isStaff(caller)) throw new HttpsError("permission-denied", "Staff only.");
+    const { year, month } = request.data || {};
+    if (!year || !month || month < 1 || month > 12) {
+      throw new HttpsError("invalid-argument", "Valid year and month (1-12) required.");
+    }
+
+    const monthStr = `${year}-${String(month).padStart(2, "0")}`;
+    const snapshot = await db
+      .collection("attendance")
+      .where("tenantId", "==", caller.tenantId)
+      .where("date", ">=", `${monthStr}-01`)
+      .where("date", "<", `${monthStr}-32`)
+      .get();
+
+    const records = snapshot.docs.map((d) => d.data() as any);
+    const empMap = new Map<string, any>();
+
+    for (const rec of records) {
+      if (!empMap.has(rec.employeeId)) {
+        empMap.set(rec.employeeId, {
+          employeeId: rec.employeeId,
+          fullName: "",
+          presentDays: 0,
+          lateDays: 0,
+          absentDays: 0,
+          totalWorkedMinutes: 0,
+        });
+      }
+      const emp = empMap.get(rec.employeeId);
+      if (rec.status === "present") emp.presentDays++;
+      else if (rec.status === "late") emp.lateDays++;
+      else if (rec.status === "absent") emp.absentDays++;
+      emp.totalWorkedMinutes += rec.workedMinutes || 0;
+    }
+
+    // Load employee names
+    const empDocs = await db
+      .collection("employees")
+      .where("tenantId", "==", caller.tenantId)
+      .get();
+    for (const d of empDocs.docs) {
+      const e = d.data() as any;
+      if (empMap.has(d.id)) {
+        empMap.get(d.id).fullName = e.fullName;
+      }
+    }
+
+    const stats: MonthlyReportStats = {
+      year,
+      month,
+      totalEmployees: empMap.size,
+      presentDays: Array.from(empMap.values()).reduce((s, e) => s + e.presentDays, 0),
+      lateDays: Array.from(empMap.values()).reduce((s, e) => s + e.lateDays, 0),
+      absentDays: Array.from(empMap.values()).reduce((s, e) => s + e.absentDays, 0),
+      averageWorkedMinutes:
+        empMap.size > 0
+          ? Math.round(Array.from(empMap.values()).reduce((s, e) => s + e.totalWorkedMinutes, 0) / empMap.size)
+          : 0,
+      employeeStats: Array.from(empMap.values()),
+    };
+
+    return stats;
+  }
+);
+
+// ---------------------------------------------------------------------------
+// Employee Locations (branch manager / staff)
+// ---------------------------------------------------------------------------
+
+export interface EmployeeLocation {
+  employeeId: string;
+  fullName: string;
+  lat: number;
+  lng: number;
+  status: string;
+  checkInAt: any;
+  distance?: number;
+}
+
+export const getEmployeeLocations = onCall(
+  { region: REGION, enforceAppCheck: ENFORCE_APP_CHECK },
+  async (request) => {
+    const caller = getCaller(request);
+    if (!isStaff(caller)) throw new HttpsError("permission-denied", "Staff only.");
+    const { branchId } = request.data || {};
+
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const query = db
+      .collection("attendance")
+      .where("tenantId", "==", caller.tenantId)
+      .where("date", "==", todayStr)
+      .where("checkInAt", ">", new Date(Date.now() - 24 * 60 * 60 * 1000));
+
+    const snapshot = await (branchId ? query.where("branchId", "==", branchId) : query).get();
+
+    const locations: EmployeeLocation[] = [];
+    const empMap = new Map<string, any>();
+
+    // Get employee data
+    const empDocs = await (branchId
+      ? db.collection("employees").where("branchId", "==", branchId).where("tenantId", "==", caller.tenantId)
+      : db.collection("employees").where("tenantId", "==", caller.tenantId)
+    ).get();
+
+    for (const d of empDocs.docs) {
+      empMap.set(d.id, d.data());
+    }
+
+    for (const doc of snapshot.docs) {
+      const rec = doc.data() as any;
+      const emp = empMap.get(rec.employeeId);
+      if (emp && rec.checkInLocation) {
+        locations.push({
+          employeeId: rec.employeeId,
+          fullName: emp.fullName || "",
+          lat: rec.checkInLocation.lat,
+          lng: rec.checkInLocation.lng,
+          status: rec.status,
+          checkInAt: rec.checkInAt,
+          distance: rec.checkInDistance,
+        });
+      }
+    }
+
+    return { locations };
+  }
+);
+
+// ---------------------------------------------------------------------------
+// Excel Export (staff) — async task
+// ---------------------------------------------------------------------------
+
+export const exportAttendanceExcel = onCall(
+  { region: REGION, enforceAppCheck: ENFORCE_APP_CHECK, memory: "1GiB" },
+  async (request) => {
+    const caller = getCaller(request);
+    if (!isStaff(caller)) throw new HttpsError("permission-denied", "Staff only.");
+    const { year, month } = request.data || {};
+    if (!year || !month || month < 1 || month > 12) {
+      throw new HttpsError("invalid-argument", "Valid year and month required.");
+    }
+
+    const monthStr = `${year}-${String(month).padStart(2, "0")}`;
+    const snapshot = await db
+      .collection("attendance")
+      .where("tenantId", "==", caller.tenantId)
+      .where("date", ">=", `${monthStr}-01`)
+      .where("date", "<", `${monthStr}-32`)
+      .orderBy("date")
+      .orderBy("employeeId")
+      .get();
+
+    const records = snapshot.docs.map((d) => d.data() as any);
+
+    // Build CSV (Excel-compatible)
+    const headers = ["Date", "Employee ID", "Name", "Branch", "Status", "Check-In", "Check-Out", "Worked Hours"];
+    const rows = records.map((r) => [
+      r.date,
+      r.employeeId,
+      "", // will fill with name lookup
+      r.branchId || "",
+      r.status || "absent",
+      r.checkInAt?.toDate?.().toISOString() || "",
+      r.checkOutAt?.toDate?.().toISOString() || "",
+      ((r.workedMinutes || 0) / 60).toFixed(2),
+    ]);
+
+    // Fill employee names
+    const empDocs = await db
+      .collection("employees")
+      .where("tenantId", "==", caller.tenantId)
+      .get();
+    const nameMap = new Map(empDocs.docs.map((d) => [d.id, (d.data() as any).fullName]));
+    rows.forEach((r) => {
+      r[2] = nameMap.get(r[1]) || "";
+    });
+
+    const csv = [headers, ...rows].map((row) => row.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
+
+    // Return as data URL for download (in prod, would upload to Cloud Storage)
+    return {
+      ok: true,
+      csv,
+      filename: `attendance_${year}_${month}.csv`,
+    };
+  }
+);
+
+// ---------------------------------------------------------------------------
+// Daily Alerts (scheduled — runs at 9:30 AM Cairo time)
+// ---------------------------------------------------------------------------
+
+export const sendAttendanceAlerts = onSchedule(
+  { region: REGION, schedule: "30 7 * * *", timeZone: "Africa/Cairo" },
+  async (context) => {
+    // Get all active tenants
+    const tenants = await db.collection("tenants").where("attendanceConfig", "!=", null).get();
+    let alertCount = 0;
+
+    for (const tenantDoc of tenants.docs) {
+      const tenantId = tenantDoc.id;
+      const config = (tenantDoc.data() as any).attendanceConfig as AttendanceConfig;
+
+      // Check today's attendance
+      const todayStr = new Date().toISOString().slice(0, 10);
+      const todayRecords = await db
+        .collection("attendance")
+        .where("tenantId", "==", tenantId)
+        .where("date", "==", todayStr)
+        .get();
+
+      const recordsMap = new Map(todayRecords.docs.map((d) => [d.data().employeeId, d.data()]));
+
+      // Get all employees
+      const employees = await db.collection("employees").where("tenantId", "==", tenantId).get();
+
+      const alerts = [];
+
+      for (const empDoc of employees.docs) {
+        const emp = empDoc.data() as any;
+        const empId = empDoc.id;
+        const rec = recordsMap.get(empId);
+
+        // Missing check-in
+        if (!rec) {
+          const isWorkDay = config.workDays.includes(new Date().getDay());
+          if (isWorkDay) {
+            alerts.push({
+              type: "absent",
+              employeeId: empId,
+              fullName: emp.fullName,
+              message: `${emp.fullName} has not checked in today`,
+            });
+          }
+        } else if (rec.status === "late") {
+          alerts.push({
+            type: "late",
+            employeeId: empId,
+            fullName: emp.fullName,
+            lateMinutes: rec.lateMinutes,
+            message: `${emp.fullName} is ${rec.lateMinutes} minutes late`,
+          });
+        }
+      }
+
+      // Store alerts in a collection for managers to view
+      if (alerts.length > 0) {
+        const alertDocRef = db.collection("attendanceAlerts").doc();
+        await alertDocRef.set({
+          tenantId,
+          date: todayStr,
+          alertCount: alerts.length,
+          alerts,
+          createdAt: FieldValue.serverTimestamp(),
+        });
+        alertCount += alerts.length;
+      }
+    }
+
+    logger.info(`Sent ${alertCount} attendance alerts across all tenants`);
+    return { alertCount };
   }
 );

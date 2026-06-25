@@ -74,6 +74,14 @@ export default function AttendancePage() {
   const [locForm, setLocForm] = useState({ branchId: "", lat: "", lng: "", radius: "" });
   // Employee login form
   const [loginForm, setLoginForm] = useState({ employeeId: "", email: "", password: "" });
+  // Monthly report form
+  const [reportForm, setReportForm] = useState({ year: new Date().getFullYear(), month: new Date().getMonth() + 1 });
+  const [reportData, setReportData] = useState<any>(null);
+  // Employee locations
+  const [locations, setLocations] = useState<any[]>([]);
+  const [selectedBranchForMap, setSelectedBranchForMap] = useState("");
+  // Manager alerts
+  const [alerts, setAlerts] = useState<any[]>([]);
 
   useEffect(() => {
     if (!loading && !user) router.replace("/auth");
@@ -189,6 +197,43 @@ export default function AttendancePage() {
       await call("createEmployeeLogin", loginForm);
       flash(true, t("attendance.create") + " ✓");
       setLoginForm({ employeeId: "", email: "", password: "" });
+    } catch (err: any) { flash(false, `${t("common.error")}: ${err.message}`); }
+    finally { setBusy(false); }
+  }
+
+  async function loadMonthlyReport() {
+    setBusy(true); setMsg("");
+    try {
+      const data = await call("getMonthlyReport", reportForm);
+      setReportData(data);
+      flash(true, t("attendance.report") + " ✓");
+    } catch (err: any) { flash(false, `${t("common.error")}: ${err.message}`); }
+    finally { setBusy(false); }
+  }
+
+  async function loadEmployeeLocations() {
+    setBusy(true); setMsg("");
+    try {
+      const res = await call("getEmployeeLocations", { branchId: selectedBranchForMap || null });
+      setLocations(res.locations);
+      flash(true, t("attendance.liveLocations") + " ✓");
+    } catch (err: any) { flash(false, `${t("common.error")}: ${err.message}`); }
+    finally { setBusy(false); }
+  }
+
+  async function downloadExcel() {
+    setBusy(true); setMsg("");
+    try {
+      const res = await call("exportAttendanceExcel", reportForm);
+      if (res.csv) {
+        const blob = new Blob([res.csv], { type: "text/csv" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = res.filename;
+        a.click();
+        flash(true, t("attendance.downloadReport") + " ✓");
+      }
     } catch (err: any) { flash(false, `${t("common.error")}: ${err.message}`); }
     finally { setBusy(false); }
   }
@@ -366,6 +411,144 @@ export default function AttendancePage() {
               {busy ? t("common.loading") : t("attendance.saveConfig")}
             </button>
           </form>
+        </section>
+      )}
+
+      {/* ───────── MONTHLY REPORT (staff) ───────── */}
+      {isManager && (
+        <section className="card" style={{ marginTop: 24 }}>
+          <h2>{t("attendance.monthlyReport")}</h2>
+          <div style={{ marginTop: 12, display: "flex", gap: 12, alignItems: "end", flexWrap: "wrap" }}>
+            <label style={{ flex: "0 0 auto" }}>
+              {t("attendance.selectMonth")}
+              <input
+                type="month"
+                value={`${reportForm.year}-${String(reportForm.month).padStart(2, "0")}`}
+                onChange={(e) => {
+                  const [y, m] = e.target.value.split("-");
+                  setReportForm({ year: Number(y), month: Number(m) });
+                }}
+              />
+            </label>
+            <button className="btn" disabled={busy} onClick={loadMonthlyReport}>
+              {t("attendance.report")}
+            </button>
+            <button className="btn btn-outline" disabled={busy} onClick={downloadExcel} style={{ flex: "0 0 auto" }}>
+              📊 {t("attendance.exportExcel")}
+            </button>
+          </div>
+
+          {reportData && (
+            <div style={{ marginTop: 20, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12 }}>
+              <div style={{ padding: 12, background: "var(--surface)", borderRadius: 8 }}>
+                <div style={{ fontSize: "0.85rem", color: "var(--muted)" }}>{t("attendance.totalEmployees")}</div>
+                <div style={{ fontSize: "1.5rem", fontWeight: 700 }}>{reportData.totalEmployees}</div>
+              </div>
+              <div style={{ padding: 12, background: "var(--surface)", borderRadius: 8 }}>
+                <div style={{ fontSize: "0.85rem", color: "var(--muted)" }}>{t("attendance.present")}</div>
+                <div style={{ fontSize: "1.5rem", fontWeight: 700, color: "#16a34a" }}>{reportData.presentDays}</div>
+              </div>
+              <div style={{ padding: 12, background: "var(--surface)", borderRadius: 8 }}>
+                <div style={{ fontSize: "0.85rem", color: "var(--muted)" }}>{t("attendance.late")}</div>
+                <div style={{ fontSize: "1.5rem", fontWeight: 700, color: "#d97706" }}>{reportData.lateDays}</div>
+              </div>
+              <div style={{ padding: 12, background: "var(--surface)", borderRadius: 8 }}>
+                <div style={{ fontSize: "0.85rem", color: "var(--muted)" }}>{t("attendance.absent")}</div>
+                <div style={{ fontSize: "1.5rem", fontWeight: 700, color: "#dc2626" }}>{reportData.absentDays}</div>
+              </div>
+              <div style={{ padding: 12, background: "var(--surface)", borderRadius: 8 }}>
+                <div style={{ fontSize: "0.85rem", color: "var(--muted)" }}>{t("attendance.avgWorkedHours")}</div>
+                <div style={{ fontSize: "1.5rem", fontWeight: 700 }}>
+                  {(reportData.averageWorkedMinutes / 60).toFixed(1)}h
+                </div>
+              </div>
+            </div>
+          )}
+
+          {reportData?.employeeStats && (
+            <div style={{ marginTop: 20, overflowX: "auto" }}>
+              <table>
+                <thead>
+                  <tr>
+                    <th>{t("attendance.name")}</th>
+                    <th>{t("attendance.present")}</th>
+                    <th>{t("attendance.late")}</th>
+                    <th>{t("attendance.absent")}</th>
+                    <th>{t("attendance.worked")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {reportData.employeeStats.map((emp: any) => (
+                    <tr key={emp.employeeId}>
+                      <td>{emp.fullName}</td>
+                      <td style={{ color: "#16a34a", fontWeight: 600 }}>{emp.presentDays}</td>
+                      <td style={{ color: "#d97706", fontWeight: 600 }}>{emp.lateDays}</td>
+                      <td style={{ color: "#dc2626", fontWeight: 600 }}>{emp.absentDays}</td>
+                      <td>{(emp.totalWorkedMinutes / 60).toFixed(1)}h</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* ───────── EMPLOYEE MAP (staff) ───────── */}
+      {isManager && (
+        <section className="card" style={{ marginTop: 24 }}>
+          <h2>{t("attendance.employeeMap")}</h2>
+          <div style={{ marginTop: 12, marginBottom: 16 }}>
+            <label>
+              {t("nav.branches")}
+              <select value={selectedBranchForMap} onChange={(e) => setSelectedBranchForMap(e.target.value)}>
+                <option value="">{t("common.all")}</option>
+                {branches.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button className="btn" disabled={busy} onClick={loadEmployeeLocations} style={{ marginTop: 8 }}>
+              {t("attendance.liveLocations")}
+            </button>
+          </div>
+
+          {locations.length > 0 ? (
+            <div style={{ marginTop: 12, overflowX: "auto" }}>
+              <table>
+                <thead>
+                  <tr>
+                    <th>{t("attendance.name")}</th>
+                    <th>GPS</th>
+                    <th>{t("attendance.distance")}</th>
+                    <th>{t("attendance.status")}</th>
+                    <th>{t("attendance.checkInTime")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {locations.map((loc: any) => (
+                    <tr key={loc.employeeId}>
+                      <td>{loc.fullName}</td>
+                      <td style={{ fontSize: "0.85rem", fontFamily: "monospace" }}>
+                        {loc.lat.toFixed(4)}, {loc.lng.toFixed(4)}
+                      </td>
+                      <td>{loc.distance}m</td>
+                      <td>
+                        <span className={`pill ${STATUS_PILL[loc.status] || "pill-gray"}`}>
+                          {t(`attendance.${loc.status}`)}
+                        </span>
+                      </td>
+                      <td>{fmtTime(loc.checkInAt)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : locations.length === 0 && msg.includes("Locations") ? (
+            <p style={{ color: "var(--muted)", textAlign: "center", padding: "20px 0" }}>{t("attendance.noLocations")}</p>
+          ) : null}
         </section>
       )}
 

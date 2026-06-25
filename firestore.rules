@@ -267,6 +267,14 @@ service cloud.firestore {
       allow write: if false; // checkIn / checkOut functions only
     }
 
+    // attendance alerts (daily summaries for managers)
+    match /attendanceAlerts/{alertId} {
+      allow read: if isCompanyStaff(resource.data.tenantId)
+        || isHR(resource.data.tenantId)
+        || isBranchManager(resource.data.tenantId, resource.data.branchId);
+      allow write: if false; // sendAttendanceAlerts function only
+    }
+
     // ---------------------------------------------------------------------
     // short-lived tokens (Firestore TTL on expireAt)
     // ---------------------------------------------------------------------

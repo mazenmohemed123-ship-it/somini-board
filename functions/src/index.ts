@@ -55,6 +55,10 @@ export {
   createEmployeeLogin,
   checkIn,
   checkOut,
+  getMonthlyReport,
+  getEmployeeLocations,
+  exportAttendanceExcel,
+  sendAttendanceAlerts,
 } from "./attendance/attendance";
 
 // --- Payments (Paymob) ---
